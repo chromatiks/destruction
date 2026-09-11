@@ -1,4 +1,4 @@
--- DESTRUCTION_LIB_VERSION = 2026-09-11-c
+-- DESTRUCTION_LIB_VERSION = 2026-09-11-d
 --[[
   Destruction UI — polished shell library
   exact_clone_open.lua beside this file, or HttpGet from repo.
@@ -464,7 +464,7 @@ end
 -- Window
 ----------------------------------------------------------------
 function Library:Window(opts)
-    -- DESTRUCTION_LIB_VERSION 2026-09-11-c
+    -- DESTRUCTION_LIB_VERSION 2026-09-11-d
     opts = opts or {}
     local a = loadShell()
     local gui = a.ScreenGui
@@ -1013,6 +1013,7 @@ function Library:Window(opts)
                 local flag = o.Flag or o.flag or o.Name
                 local items = o.Values or o.Options or o.Items or o.items or o.options or {}
                 local multi = o.MultiSelect or o.multi or false
+                local searchable = o.Search ~= false and (#items >= 6 or o.Search == true)
                 local cur = o.Default or o.default
                 if multi then
                     if type(cur) ~= "table" then cur = {} end
@@ -1020,48 +1021,61 @@ function Library:Window(opts)
                     cur = cur or items[1]
                 end
                 if flag then Library.Flags[flag] = cur end
-                local r = row(60)
+
+                -- shell: dim label + full-width Surface2 box (30px) + chevron
+                local r = row(58)
                 local nl = Instance.new("TextLabel")
                 nl.BackgroundTransparency = 1
-                nl.Position = UDim2.fromOffset(0, -1)
-                nl.Size = UDim2.new(1, -8, 0, 20)
+                nl.Position = UDim2.fromOffset(0, 0)
+                nl.Size = UDim2.new(1, -4, 0, 18)
                 nl.FontFace = FONT
                 nl.TextSize = 14
                 nl.TextColor3 = Library.Theme.Dim
                 nl.TextXAlignment = Enum.TextXAlignment.Left
-                nl.TextYAlignment = Enum.TextYAlignment.Top
+                nl.TextYAlignment = Enum.TextYAlignment.Center
                 nl.Text = o.Name or o.name or "Dropdown"
                 nl.Parent = r
+
                 local box = Instance.new("Frame")
                 box.BackgroundColor3 = Library.Theme.Surface2
                 box.BorderSizePixel = 0
-                box.Position = UDim2.fromOffset(0, 25)
+                box.Position = UDim2.fromOffset(0, 22)
                 box.Size = UDim2.new(1, 0, 0, 30)
+                box.ClipsDescendants = true
                 box.Parent = r
                 corner(box, 6)
+                stroke(box, Library.Theme.Stroke, 1)
+
                 local function displayText()
                     if multi and type(cur) == "table" then
-                        return #cur > 0 and table.concat(cur, ", ") or (o.Placeholder or "None")
+                        if #cur == 0 then return o.Placeholder or "None" end
+                        if #cur <= 2 then return table.concat(cur, ", ") end
+                        return tostring(cur[1]) .. " +" .. tostring(#cur - 1)
                     end
                     return tostring(cur or o.Placeholder or "None")
                 end
+
                 local valL = Instance.new("TextLabel")
                 valL.BackgroundTransparency = 1
-                valL.Position = UDim2.fromOffset(10, 0)
-                valL.Size = UDim2.new(1, -39, 1, 0)
+                valL.Position = UDim2.fromOffset(12, 0)
+                valL.Size = UDim2.new(1, -40, 1, 0)
                 valL.FontFace = FONT
                 valL.TextSize = 14
                 valL.TextColor3 = Library.Theme.Text
                 valL.TextXAlignment = Enum.TextXAlignment.Left
+                valL.TextTruncate = Enum.TextTruncate.AtEnd
                 valL.Text = displayText()
                 valL.Parent = box
+
                 local chevron = Instance.new("ImageLabel")
                 chevron.BackgroundTransparency = 1
-                chevron.Position = UDim2.new(1, -21, 0, 8)
-                chevron.Size = UDim2.fromOffset(13, 13)
+                chevron.AnchorPoint = Vector2.new(1, 0.5)
+                chevron.Position = UDim2.new(1, -10, 0.5, 0)
+                chevron.Size = UDim2.fromOffset(12, 12)
                 chevron.Image = "rbxassetid://127296511745226"
                 chevron.ImageColor3 = Library.Theme.Dim
                 chevron.Parent = box
+
                 local hit = Instance.new("TextButton")
                 hit.BackgroundTransparency = 1
                 hit.Size = UDim2.fromScale(1, 1)
@@ -1069,93 +1083,252 @@ function Library:Window(opts)
                 hit.ZIndex = 3
                 hit.AutoButtonColor = false
                 hit.Parent = box
+
                 local open = false
-                local drop
-                local function close()
-                    if drop then drop:Destroy() drop = nil end
-                    open = false
-                    pcall(function() tween(chevron, { Rotation = 0 }, 0.15) end)
+                local drop, dropConn, outsideConn
+                local hostGui = (r:FindFirstAncestorOfClass("ScreenGui")) or gui
+
+                local function selected(it)
+                    if multi and type(cur) == "table" then
+                        for _, v in ipairs(cur) do
+                            if v == it then return true end
+                        end
+                        return false
+                    end
+                    return cur == it
                 end
+
+                local function close()
+                    if dropConn then dropConn:Disconnect() dropConn = nil end
+                    if outsideConn then outsideConn:Disconnect() outsideConn = nil end
+                    if drop then
+                        local d = drop
+                        drop = nil
+                        tween(d, { BackgroundTransparency = 1 }, 0.12)
+                        for _, c in ipairs(d:GetDescendants()) do
+                            if c:IsA("TextLabel") or c:IsA("TextButton") or c:IsA("TextBox") then
+                                pcall(function() tween(c, { TextTransparency = 1 }, 0.1) end)
+                            elseif c:IsA("UIStroke") then
+                                pcall(function() tween(c, { Transparency = 1 }, 0.1) end)
+                            elseif c:IsA("Frame") and c.BackgroundTransparency < 1 then
+                                pcall(function() tween(c, { BackgroundTransparency = 1 }, 0.1) end)
+                            end
+                        end
+                        task.delay(0.14, function()
+                            pcall(function() d:Destroy() end)
+                        end)
+                    end
+                    open = false
+                    pcall(function()
+                        tween(chevron, { Rotation = 0, ImageColor3 = Library.Theme.Dim }, 0.15)
+                        tween(box, { BackgroundColor3 = Library.Theme.Surface2 }, 0.15)
+                    end)
+                end
+
+                local function placeDrop()
+                    if not drop or not box.Parent then return end
+                    local abs = box.AbsolutePosition
+                    local asz = box.AbsoluteSize
+                    drop.Position = UDim2.fromOffset(abs.X, abs.Y + asz.Y + 6)
+                    drop.Size = UDim2.fromOffset(math.max(asz.X, 120), drop.Size.Y.Offset)
+                end
+
                 local function openDrop()
                     if open then close() return end
                     open = true
-                    pcall(function() tween(chevron, { Rotation = 180 }, 0.15) end)
+                    tween(chevron, { Rotation = 180, ImageColor3 = Library.Theme.Accent }, 0.18, Enum.EasingStyle.Quint)
+                    tween(box, { BackgroundColor3 = Color3.fromRGB(32, 32, 40) }, 0.15)
+
                     local abs = box.AbsolutePosition
                     local asz = box.AbsoluteSize
-                    local sg = r:FindFirstAncestorOfClass("ScreenGui") or box
+                    local maxH = math.clamp(28 * math.max(#items, 1) + (searchable and 40 or 12), 44, 200)
+
                     drop = Instance.new("Frame")
+                    drop.Name = "DestDropdown"
                     drop.BackgroundColor3 = Library.Theme.Background
+                    drop.BackgroundTransparency = 0
                     drop.BorderSizePixel = 0
-                    drop.Position = UDim2.fromOffset(abs.X, abs.Y + asz.Y + 4)
-                    drop.Size = UDim2.fromOffset(asz.X, math.min(28 * math.max(#items, 1) + 10, 180))
-                    drop.ZIndex = 200
-                    drop.Parent = sg
-                    corner(drop, 6)
-                    stroke(drop, Library.Theme.Stroke, 1)
-                    local sc = Instance.new("ScrollingFrame")
-                    sc.BackgroundTransparency = 1
-                    sc.Size = UDim2.fromScale(1, 1)
-                    sc.BorderSizePixel = 0
-                    sc.ScrollBarThickness = 2
-                    sc.CanvasSize = UDim2.new()
-                    sc.AutomaticCanvasSize = Enum.AutomaticSize.Y
-                    sc.ZIndex = 201
-                    sc.Parent = drop
-                    local lay = Instance.new("UIListLayout")
-                    lay.Padding = UDim.new(0, 2)
-                    lay.Parent = sc
-                    local pd = Instance.new("UIPadding")
-                    pd.PaddingTop = UDim.new(0, 4)
-                    pd.PaddingBottom = UDim.new(0, 4)
-                    pd.PaddingLeft = UDim.new(0, 4)
-                    pd.PaddingRight = UDim.new(0, 4)
-                    pd.Parent = sc
-                    for _, it in ipairs(items) do
-                        local b = Instance.new("TextButton")
-                        b.BackgroundColor3 = Library.Theme.Surface2
-                        b.BackgroundTransparency = 1
-                        b.Size = UDim2.new(1, 0, 0, 26)
-                        b.Text = "  " .. tostring(it)
-                        b.TextColor3 = Library.Theme.Text
-                        b.TextSize = 13
-                        b.FontFace = FONT
-                        b.TextXAlignment = Enum.TextXAlignment.Left
-                        b.AutoButtonColor = false
-                        b.ZIndex = 202
-                        b.Parent = sc
-                        corner(b, 4)
-                        conn(b.MouseEnter, function() b.BackgroundTransparency = 0 end)
-                        conn(b.MouseLeave, function() b.BackgroundTransparency = 1 end)
-                        conn(b.MouseButton1Click, function()
-                            if multi then
-                                if type(cur) ~= "table" then cur = {} end
-                                local found
-                                for i, v in ipairs(cur) do
-                                    if v == it then found = i break end
+                    drop.Position = UDim2.fromOffset(abs.X, abs.Y + asz.Y + 6)
+                    drop.Size = UDim2.fromOffset(asz.X, maxH)
+                    drop.ZIndex = 300
+                    drop.Parent = hostGui
+                    corner(drop, 8)
+                    local ds = stroke(drop, Library.Theme.Stroke, 1)
+                    ds.ZIndex = 300
+
+                    -- soft shadow edge
+                    local shadow = Instance.new("Frame")
+                    shadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+                    shadow.BackgroundTransparency = 0.85
+                    shadow.BorderSizePixel = 0
+                    shadow.Size = UDim2.new(1, 6, 1, 6)
+                    shadow.Position = UDim2.fromOffset(-3, -2)
+                    shadow.ZIndex = 299
+                    shadow.Parent = drop
+                    corner(shadow, 8)
+
+                    local y0 = 6
+                    local filter = ""
+                    local listFrame
+
+                    if searchable then
+                        local searchBox = Instance.new("TextBox")
+                        searchBox.BackgroundColor3 = Library.Theme.Surface2
+                        searchBox.BorderSizePixel = 0
+                        searchBox.Position = UDim2.fromOffset(8, 8)
+                        searchBox.Size = UDim2.new(1, -16, 0, 26)
+                        searchBox.FontFace = FONT
+                        searchBox.TextSize = 13
+                        searchBox.TextColor3 = Library.Theme.Text
+                        searchBox.PlaceholderText = "Search..."
+                        searchBox.PlaceholderColor3 = Library.Theme.Dim
+                        searchBox.ClearTextOnFocus = false
+                        searchBox.Text = ""
+                        searchBox.ZIndex = 302
+                        searchBox.Parent = drop
+                        corner(searchBox, 5)
+                        stroke(searchBox, Library.Theme.Stroke, 1)
+                        y0 = 40
+                        conn(searchBox:GetPropertyChangedSignal("Text"), function()
+                            filter = string.lower(searchBox.Text or "")
+                            if listFrame then
+                                for _, ch in ipairs(listFrame:GetChildren()) do
+                                    if ch:IsA("TextButton") then
+                                        local name = string.lower(ch:GetAttribute("ItemName") or ch.Text or "")
+                                        ch.Visible = filter == "" or string.find(name, filter, 1, true) ~= nil
+                                    end
                                 end
-                                if found then table.remove(cur, found) else table.insert(cur, it) end
-                                if flag then Library.Flags[flag] = cur end
-                                valL.Text = displayText()
-                                if o.Callback then task.spawn(o.Callback, cur) end
-                            else
-                                cur = it
-                                if flag then Library.Flags[flag] = cur end
-                                valL.Text = displayText()
-                                if o.Callback then task.spawn(o.Callback, cur) end
-                                close()
                             end
                         end)
                     end
+
+                    listFrame = Instance.new("ScrollingFrame")
+                    listFrame.BackgroundTransparency = 1
+                    listFrame.Position = UDim2.fromOffset(4, y0)
+                    listFrame.Size = UDim2.new(1, -8, 1, -(y0 + 6))
+                    listFrame.BorderSizePixel = 0
+                    listFrame.ScrollBarThickness = 3
+                    listFrame.ScrollBarImageColor3 = Library.Theme.Stroke
+                    listFrame.CanvasSize = UDim2.new()
+                    listFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+                    listFrame.ZIndex = 301
+                    listFrame.Parent = drop
+                    local lay = Instance.new("UIListLayout")
+                    lay.Padding = UDim.new(0, 2)
+                    lay.SortOrder = Enum.SortOrder.LayoutOrder
+                    lay.Parent = listFrame
+
+                    local function rebuild()
+                        for _, ch in ipairs(listFrame:GetChildren()) do
+                            if ch:IsA("TextButton") then ch:Destroy() end
+                        end
+                        for _, it in ipairs(items) do
+                            local isOn = selected(it)
+                            local b = Instance.new("TextButton")
+                            b.AutoButtonColor = false
+                            b.BackgroundColor3 = isOn and Library.Theme.Accent or Library.Theme.Surface2
+                            b.BackgroundTransparency = isOn and 0.15 or 1
+                            b.Size = UDim2.new(1, 0, 0, 28)
+                            b.FontFace = FONT
+                            b.TextSize = 13
+                            b.TextColor3 = isOn and Library.Theme.Text or Library.Theme.Text
+                            b.TextXAlignment = Enum.TextXAlignment.Left
+                            b.Text = (isOn and "  ✓  " or "     ") .. tostring(it)
+                            b:SetAttribute("ItemName", tostring(it))
+                            b.ZIndex = 302
+                            b.Parent = listFrame
+                            corner(b, 5)
+
+                            conn(b.MouseEnter, function()
+                                if not selected(it) then
+                                    tween(b, { BackgroundTransparency = 0.35 }, 0.1)
+                                end
+                            end)
+                            conn(b.MouseLeave, function()
+                                if not selected(it) then
+                                    tween(b, { BackgroundTransparency = 1 }, 0.1)
+                                end
+                            end)
+                            conn(b.MouseButton1Click, function()
+                                if multi then
+                                    if type(cur) ~= "table" then cur = {} end
+                                    local found
+                                    for i, v in ipairs(cur) do
+                                        if v == it then found = i break end
+                                    end
+                                    if found then table.remove(cur, found) else table.insert(cur, it) end
+                                    if flag then Library.Flags[flag] = cur end
+                                    valL.Text = displayText()
+                                    if o.Callback then task.spawn(o.Callback, cur) end
+                                    if o.callback then task.spawn(o.callback, cur) end
+                                    rebuild()
+                                else
+                                    cur = it
+                                    if flag then Library.Flags[flag] = cur end
+                                    valL.Text = displayText()
+                                    if o.Callback then task.spawn(o.Callback, cur) end
+                                    if o.callback then task.spawn(o.callback, cur) end
+                                    close()
+                                end
+                            end)
+                        end
+                    end
+                    rebuild()
+
+                    -- follow menu while open
+                    dropConn = RS.RenderStepped:Connect(placeDrop)
+                    table.insert(Library.Connections, dropConn)
+
+                    -- click outside closes
+                    task.defer(function()
+                        outsideConn = UIS.InputBegan:Connect(function(input)
+                            if not open or not drop then return end
+                            if input.UserInputType ~= Enum.UserInputType.MouseButton1
+                                and input.UserInputType ~= Enum.UserInputType.Touch then
+                                return
+                            end
+                            local p = Vector2.new(input.Position.X, input.Position.Y)
+                            local dpos, dsz = drop.AbsolutePosition, drop.AbsoluteSize
+                            local bpos, bsz = box.AbsolutePosition, box.AbsoluteSize
+                            local inDrop = p.X >= dpos.X and p.X <= dpos.X + dsz.X and p.Y >= dpos.Y and p.Y <= dpos.Y + dsz.Y
+                            local inBox = p.X >= bpos.X and p.X <= bpos.X + bsz.X and p.Y >= bpos.Y and p.Y <= bpos.Y + bsz.Y
+                            if not inDrop and not inBox then
+                                close()
+                            end
+                        end)
+                        table.insert(Library.Connections, outsideConn)
+                    end)
                 end
+
                 conn(hit.MouseButton1Click, openDrop)
+                conn(hit.MouseEnter, function()
+                    if not open then
+                        tween(box, { BackgroundColor3 = Color3.fromRGB(32, 32, 40) }, 0.12)
+                    end
+                end)
+                conn(hit.MouseLeave, function()
+                    if not open then
+                        tween(box, { BackgroundColor3 = Library.Theme.Surface2 }, 0.12)
+                    end
+                end)
+
                 if flag then
                     Library._configHandlers[flag] = {
-                        Set = function(v) cur = v if flag then Library.Flags[flag] = cur end valL.Text = displayText() end,
+                        Set = function(v)
+                            cur = v
+                            if flag then Library.Flags[flag] = cur end
+                            valL.Text = displayText()
+                        end,
                         Get = function() return cur end,
                         Type = "dropdown",
                     }
                 end
-                return { Set = function(v) cur = v valL.Text = displayText() end, Get = function() return cur end, Flag = flag }
+                return {
+                    Set = function(v) cur = v valL.Text = displayText() end,
+                    Get = function() return cur end,
+                    Flag = flag,
+                    Root = r,
+                }
             end
 
             function Section:Button(o)
