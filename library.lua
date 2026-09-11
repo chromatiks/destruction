@@ -1,4 +1,4 @@
--- GLACIER_BUILD 2026-09-04-a | Glacier UI
+-- Noctro UI
 local uis = game:GetService("UserInputService")
 local players = game:GetService("Players")
 local ws = game:GetService("Workspace")
@@ -55,9 +55,9 @@ local find = table.find
 local remove = table.remove
 local concat = table.concat
 
-getgenv().Chromatik = getgenv().Chromatik or {}
+getgenv().Noctro = getgenv().Noctro or {}
 local library = {
-    directory = "Glacier",
+    directory = "Noctro",
     folders = {
         "/fonts",
         "/configs",
@@ -298,13 +298,13 @@ local function ApplyIcon(Object, Icon)
 end
 
 function library.LoadEmblemLogo()
-    if library._logoAsset and library._logoUrl == "https://raw.githubusercontent.com/chromatiik/Acen/main/EmblemBanners.png" then
+    if library._logoAsset and library._logoUrl == "https://raw.githubusercontent.com/chromatiks/Acen/main/EmblemBanners.png" then
         return library._logoAsset
     end
-    library._logoUrl = "https://raw.githubusercontent.com/chromatiik/Acen/main/EmblemBanners.png"
+    library._logoUrl = "https://raw.githubusercontent.com/chromatiks/Acen/main/EmblemBanners.png"
     task.spawn(function()
         pcall(function()
-            local data = game:HttpGet("https://raw.githubusercontent.com/chromatiik/Acen/main/EmblemBanners.png")
+            local data = game:HttpGet("https://raw.githubusercontent.com/chromatiks/Acen/main/EmblemBanners.png")
             if type(data) == "string" and #data > 80 then
                 pcall(function()
                     if makefolder then makefolder("Emblem") end
@@ -598,8 +598,8 @@ function library:unload_menu()
             connection:Disconnect()
         end)
     end
-    getgenv().Chromatik = nil
-    getgenv().Aether = nil
+    getgenv().Noctro = nil
+    getgenv().Noctro = nil
 end
 
 function library:get_config(Created)
@@ -695,9 +695,9 @@ end
 function library:window(properties)
     local cfg = {
         suffix = properties.suffix or properties.Suffix or "",
-        name = properties.name or properties.Name or "Glacier",
-        game_name = properties.gameInfo or properties.game_info or properties.GameInfo or "Glacier for Roblox",
-        author = properties.author or properties.Author or library.author or "chromatik",
+        name = properties.name or properties.Name or "Noctro",
+        game_name = properties.gameInfo or properties.game_info or properties.GameInfo or "Noctro for Roblox",
+        author = properties.author or properties.Author or library.author or "Noctro",
         size = properties.size or properties.Size or dim2(0, 820, 0, 460),
         selected_tab = nil,
         items = {},
@@ -714,8 +714,6 @@ function library:window(properties)
         ZIndexBehavior = Enum.ZIndexBehavior.Global,
         IgnoreGuiInset = true,
     })
-
-
 
     library["other"] = library:create("ScreenGui", {
         Parent = get_hui(),
@@ -847,7 +845,6 @@ function library:window(properties)
             end)
         end)
 
-
         library:create("UIListLayout", {
             Parent = items["button_holder"],
             Padding = dim(0, 8),
@@ -922,7 +919,6 @@ function library:window(properties)
             BorderSizePixel = 0,
             BackgroundColor3 = themes.preset.line,
         })
-
 
         items["profile_btn"] = library:create("TextButton", {
             Parent = items["multi_holder"], Name = "\0", Text = "", AutoButtonColor = false,
@@ -1048,7 +1044,7 @@ function library:window(properties)
             })
             library:create("UICorner", { Parent = unloadBtn, CornerRadius = dim(0, 6) })
             unloadBtn.MouseButton1Click:Connect(function()
-                library:Notification({ Name = "Unloading", Description = "Chromatik is shutting down.", Icon = "power" })
+                library:Notification({ Name = "Unloading", Description = "Noctro is shutting down.", Icon = "power" })
                 task.delay(0.35, function() library:unload_menu() end)
             end)
         end
@@ -1169,7 +1165,7 @@ function library:window(properties)
             Name = "\0",
             TextColor3 = themes.preset.accent,
             BorderColor3 = rgb(0, 0, 0),
-            Text = string.format('<font color="rgb(72, 72, 73)">%s, </font>%s%s', cfg.author or library.author or "chromatik", cfg.name, cfg.suffix or ""),
+            Text = string.format('<font color="rgb(72, 72, 73)">%s, </font>%s%s', cfg.author or library.author or "Noctro", cfg.name, cfg.suffix or ""),
             Size = dim2(1, 0, 0, 0),
             Position = dim2(0, -10, 0.5, -1),
             AnchorPoint = vec2(0, 0.5),
@@ -1183,8 +1179,6 @@ function library:window(properties)
         })
         library:apply_theme(items["other_info"], "accent", "TextColor3")
     end
-
-
 
     library._menuMain = items["main"]
         library:draggify(items["main"])
@@ -1294,10 +1288,10 @@ function library:window(properties)
         if needMobile and vp then
             local scale = math.min(vp.X / 720, vp.Y / 580)
             scale = math.clamp(scale, 0.6, 1)
-            local us = items["main"]:FindFirstChild("ChromatikMobileScale")
+            local us = items["main"]:FindFirstChild("NoctroMobileScale")
             if not us then
                 us = Instance.new("UIScale")
-                us.Name = "ChromatikMobileScale"
+                us.Name = "NoctroMobileScale"
                 us.Parent = items["main"]
             end
             us.Scale = scale
@@ -1551,7 +1545,6 @@ function library:tab(properties)
         })
         ApplyIcon(items["icon"], cfg.icon)
 
-
         items["name"] = library:create("TextLabel", {
             FontFace = fonts.font,
             TextColor3 = themes.preset.dimtext,
@@ -1714,7 +1707,6 @@ function library:tab(properties)
             data.button = multi_items["button"]
             data.page = multi_items["tab"]
 
-
             local tab_parent = library:create("Frame", {
                 Parent = multi_items["tab"],
                 BackgroundTransparency = 1,
@@ -1744,7 +1736,6 @@ function library:tab(properties)
                     self.items["global_fade"].BackgroundTransparency = 0
                     library:tween(self.items["global_fade"], { BackgroundTransparency = 1 }, Enum.EasingStyle.Quad, 0.4)
                 end
-
 
                 for _, p in ipairs(cfg.pages) do
                     if p ~= data then
@@ -1924,7 +1915,6 @@ function library:column(properties)
     local sub = properties.tab or properties.Tab
     local parent_frame = nil
 
-
     if sub and type(sub) == "number" and self.pages and self.pages[sub] then
         parent_frame = self.pages[sub].parent
     elseif self.parent then
@@ -1938,12 +1928,11 @@ function library:column(properties)
         sub = 1
     end
 
-
     local count_key = sub or 0
     self._column_counts = self._column_counts or {}
     self._column_counts[count_key] = (self._column_counts[count_key] or 0) + 1
     if self._column_counts[count_key] > 8 then
-        warn("[Chromatik] Max columns reached — extra column ignored.")
+        warn("[Noctro] Max columns reached — extra column ignored.")
         local dummy = { items = { column = Instance.new("Frame") } }
         dummy.items.column.Parent = nil
         return setmetatable(dummy, library)
@@ -2005,7 +1994,6 @@ function library:sub_tab(properties)
     })
     return setmetatable(cfg, library)
 end
-
 
 function library._visibleColumns()
     local out = {}
@@ -2081,7 +2069,6 @@ function library._updateGhost(col, height)
     library._snapGhost.Position = UDim2.fromOffset(ap.X + 4, ap.Y + yOff + gui_offset)
     library._snapGhost.Size = UDim2.fromOffset(math.max(50, asz.X - 8), h)
 end
-
 
 function library.RefreshPageScroll()
     local th
@@ -2642,7 +2629,6 @@ function library:toggle(options)
         SortOrder = Enum.SortOrder.LayoutOrder,
     })
 
-
     items["switch"] = library:create("TextButton", {
         FontFace = fonts.small,
         TextColor3 = rgb(0, 0, 0),
@@ -2658,9 +2644,6 @@ function library:toggle(options)
         TextSize = 14,
         BackgroundColor3 = rgb(33, 33, 35),
     })
-
-
-
 
     library:create("UICorner", {
         Parent = items["switch"],
@@ -2680,7 +2663,6 @@ function library:toggle(options)
         Parent = items["knob"],
         CornerRadius = dim(0, 999),
     })
-
 
     library._toggle_hooks = library._toggle_hooks or {}
 
@@ -2747,7 +2729,6 @@ function library:slider(options)
         BorderSizePixel = 0,
         BackgroundColor3 = rgb(255, 255, 255),
     })
-
 
     items["name"] = library:create("TextLabel", {
         FontFace = fonts.font,
@@ -3321,7 +3302,6 @@ function library:dropdown(options)
                 scroll.Size = dim2(1, 0, 1, 0)
             end
 
-
             popupFrame.BackgroundColor3 = themes.preset.light
             popupFrame.BackgroundTransparency = 0
             popupFrame.Position = dim2(0, 5, 0, closedHeight() - 2)
@@ -3330,7 +3310,6 @@ function library:dropdown(options)
             popupFrame.Visible = true
             popupFrame.ClipsDescendants = true
             popupFrame.ZIndex = 5
-
 
             library:tween(items["dropdown"], {
                 Size = dim2(1, 0, 0, closedHeight() + targetH),
@@ -3357,7 +3336,6 @@ function library:dropdown(options)
             end)
         end
     end
-
 
     library:connection(uis.InputBegan, function(input)
         if not popup.open then return end
@@ -3991,7 +3969,6 @@ function library:keybind(options)
             active = cfg.active,
         }
 
-
         if cfg.flag == "menu_bind" and cfg.key and cfg.key ~= "NONE" then
             library.MenuKeybind = cfg.key
             local label = __text or "NONE"
@@ -4027,9 +4004,7 @@ function library:keybind(options)
         return false
     end
 
-
     cfg.passive = options.passive == true or options.no_listen == true
-
 
     function cfg.set_active(on)
         cfg.active = on == true
@@ -4080,7 +4055,6 @@ function library:keybind(options)
 
     cfg.set({ mode = cfg.mode, active = cfg.active, key = cfg.key })
 
-
     if cfg.flag == "menu_bind" then
         local original_set = cfg.set
         cfg.set = function(input)
@@ -4097,7 +4071,6 @@ function library:keybind(options)
     end
 
     config_flags[cfg.flag] = cfg.set
-
 
     do
         local entry = {
@@ -4177,7 +4150,6 @@ function library:colorpicker(options)
         BorderSizePixel = 0, TextSize = 14, BackgroundColor3 = cfg.color,
     })
     library:create("UICorner", { Parent = items["swatch"], CornerRadius = dim(0, 4) })
-
 
     local h, s, v = Color3.toHSV(cfg.color)
     local popup = library:create("Frame", {
@@ -4366,7 +4338,6 @@ function library:colorpicker(options)
         cfg.set_visible(not cfg.open)
     end)
 
-
     library:connection(uis.InputBegan, function(input)
         if not cfg.open then return end
         if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
@@ -4548,7 +4519,6 @@ function library:init_config(window)
 
     local createSec = left:section({ name = "Configs", icon = "folder", size = 1 })
 
-
     local createRow = library:create("Frame", {
         Parent = createSec.items["elements"],
         BackgroundTransparency = 1, Size = dim2(1, 0, 0, 32), BorderSizePixel = 0,
@@ -4644,7 +4614,6 @@ function library:init_config(window)
             Position = dim2(0, 12, 0, 0), Size = dim2(1, -120, 1, 0),
             TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd, BorderSizePixel = 0,
         })
-
 
         local autoIcon = library:create("ImageLabel", {
             Parent = row, BackgroundTransparency = 1,
@@ -4753,7 +4722,6 @@ function library:init_config(window)
     end
     refresh_list()
 
-
     local infoSec = right:section({ name = "Config info", icon = "info", size = 0.4 })
     local info_labels = {}
     local function add_info_row(key)
@@ -4788,7 +4756,6 @@ function library:init_config(window)
         info_labels["Autoload"].set("Autoload: " .. ((autoload_name == name) and "Yes" or "No"))
     end
     show_info(nil)
-
 
     local themeSec = right:section({ name = "Theme", icon = "palette", size = 0.6 })
     themeSec:label({ name = "Presets" })
@@ -4881,7 +4848,6 @@ function library:init_config(window)
         end
     end
 
-
     if autoload_name then
         task.defer(function()
             if library:LoadConfigFile(autoload_name) then
@@ -4916,11 +4882,7 @@ function library:UserPanel(window)
     sec:label({ name = uname })
     sec:label({ name = "User ID: " .. uid })
     sec:label({ name = "Account age: " .. accountAge })
-    sec:label({ name = "Library: Chromatik v" .. library.version })
-
-
-
-
+    sec:label({ name = "Library: Noctro v" .. library.version })
 
     local menuKeyLabel = "RCtrl"
     pcall(function()
@@ -4939,7 +4901,7 @@ function library:UserPanel(window)
     sec:button({
         name = "Unload",
         callback = function()
-            library:Notification({ Name = "Unloading", Description = "Chromatik is shutting down.", Icon = "power" })
+            library:Notification({ Name = "Unloading", Description = "Noctro is shutting down.", Icon = "power" })
             task.wait(0.4)
             library:unload_menu()
         end,
@@ -4947,7 +4909,6 @@ function library:UserPanel(window)
 
     return sec
 end
-
 
 local function clamp_panel_position(x, y, panel_w, panel_h)
     local vp = camera and camera.ViewportSize or Vector2.new(1920, 1080)
@@ -4973,7 +4934,6 @@ function library:KeybindList(params)
     local title = params.Title or params.Name or "Keybind list"
     local position = params.Position or dim2(0, 18, 0.4, 0)
     local visible = params.Visible ~= false
-
 
     local pos_file = library.directory .. "/keybindlist_pos.json"
     pcall(function()
@@ -5045,7 +5005,6 @@ function library:KeybindList(params)
         Padding = dim(0, 8),
     })
 
-
     local header = library:create("Frame", {
         Parent = panel,
         BackgroundTransparency = 1,
@@ -5054,7 +5013,6 @@ function library:KeybindList(params)
         ZIndex = 71,
         LayoutOrder = 0,
     })
-
 
     local listIcon = library:create("ImageButton", {
         Parent = header,
@@ -5083,7 +5041,6 @@ function library:KeybindList(params)
         ZIndex = 72,
     })
 
-
     local pinBtn = library:create("ImageButton", {
         Parent = header,
         BackgroundTransparency = 1,
@@ -5102,7 +5059,6 @@ function library:KeybindList(params)
         pinned = not pinned
         pinBtn.ImageColor3 = pinned and themes.preset.accent or themes.preset.dimtext
     end)
-
 
     local cols = library:create("Frame", {
         Parent = panel,
@@ -5158,7 +5114,6 @@ function library:KeybindList(params)
         SortOrder = Enum.SortOrder.LayoutOrder,
         Padding = dim(0, 2),
     })
-
 
     local collapsed = false
     local animating = false
@@ -5423,7 +5378,6 @@ function library:KeybindList(params)
         row.keyLbl.Text = key_label(key)
         mode = mode or read_mode(row.entry or {})
 
-
         if row.statusLbl then
             row.statusLbl.Text = mode
             row.statusLbl.TextColor3 = active and themes.preset.accent or themes.preset.dimtext
@@ -5470,7 +5424,6 @@ function library:KeybindList(params)
             end
         end
     end
-
 
     do
         local dragging, start, start_pos
@@ -5591,7 +5544,6 @@ function library:Watermark(params)
     if library.WatermarkBar then
         return library.WatermarkBar
     end
-
 
     if not library["watermark_gui"] then
         library["watermark_gui"] = library:create("ScreenGui", {
@@ -5721,7 +5673,6 @@ function library:Watermark(params)
             Frames = 0
         end
     end)
-
 
     Items.Bar.Active = false
     library.WatermarkBar = Items.Bar
@@ -5947,7 +5898,6 @@ function library:Notification(Params)
     library:tween(BarFill, { Size = dim2(0, 0, 1, 0) }, Enum.EasingStyle.Linear, Duration)
     task.delay(Duration, Dismiss)
 end
-
 
 function library:EspPreview(options)
     options = options or {}
@@ -6435,7 +6385,6 @@ function library:EspPreview(options)
         o.weapon.Text = "None"
         o.weapon.Position = dim2(0, 0, 1, (vis.Distance == true) and 16 or 4)
 
-
         if clone then
             local fillCol = vis.ChamsColor or col
             if typeof(fillCol) ~= "Color3" then fillCol = col end
@@ -6509,7 +6458,7 @@ function library:EspPreview(options)
                 state.previewHighlight = nil
             end
             pcall(function()
-                local orphan = clone:FindFirstChild("ChromatikPreviewChams")
+                local orphan = clone:FindFirstChild("NoctroPreviewChams")
                 if orphan then orphan:Destroy() end
             end)
 
@@ -6670,7 +6619,6 @@ function library:EspPreview(options)
         end
     end
 
-
     local function rebuildClone(force)
         if state.destroyed or not state.open then return end
         local now = tick()
@@ -6775,7 +6723,6 @@ function library:EspPreview(options)
         pcall(updateSkeletonBones)
     end
 
-
     local function setOpen(bool)
         bool = bool == true
         state.open = bool
@@ -6791,7 +6738,6 @@ function library:EspPreview(options)
         end
         fireCallback(bool)
     end
-
 
     do
         local dragging, start, start_pos
@@ -6946,7 +6892,6 @@ function library:EspPreview(options)
     library.EspPreviewInstance = api
     return api
 end
-
 
 -- ============================================================
 -- PlayerCard — lock-target style panel (same look as KeybindList)
@@ -7320,8 +7265,6 @@ function library:PlayerCard(params)
     return api
 end
 
-
-
 function library:BindChatCommands()
     if library._chatCmdsBound then return end
     library._chatCmdsBound = true
@@ -7397,7 +7340,7 @@ function library:Login(options)
     options = options or {}
     local fields = options.fields or options.Fields or { "key" }
     local cfg = {
-        title = options.title or options.Title or "Glacier Login",
+        title = options.title or options.Title or "Noctro Login",
         fields = fields,
         remember = options.remember ~= false and options.Remember ~= false,
         onSubmit = options.onSubmit or options.OnSubmit or options.callback or options.Callback,
@@ -7623,8 +7566,7 @@ function library:Login(options)
     return { close = restoreWindow, submit = submit }
 end
 
-
--- PascalCase aliases (Destruction-style API, same Glacier face)
+-- PascalCase aliases (Noctro-style API, same Noctro face)
 function library:Dropdown(o) return self:dropdown(o) end
 function library:Toggle(o) return self:toggle(o) end
 function library:Slider(o) return self:slider(o) end
@@ -7646,7 +7588,5 @@ function library:Notify(o)
     return nil
 end
 
-getgenv().Chromatik = library
-getgenv().Aether = library
-getgenv().Glacier = library
+getgenv().Noctro = library
 return library
