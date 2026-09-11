@@ -31,7 +31,7 @@ local Library = {
         Surface = Color3.fromRGB(20, 20, 26),
         Surface2 = Color3.fromRGB(27, 27, 35),
         Text = Color3.fromRGB(255, 255, 255),
-        Dim = Color3.fromRGB(140, 140, 150),
+        Dim = Color3.fromRGB(103, 104, 126),
         Stroke = Color3.fromRGB(33, 33, 38),
     },
 }
@@ -581,225 +581,124 @@ function Library:Window(opts)
     local current
     local switching = false
 
-    local function fadeContent(out, cb)
-        local targets = { leftScroll, rightScroll }
-        for _, sc in ipairs(targets) do
-            if out then
-                tween(sc, { ScrollBarImageTransparency = 1 }, 0.12)
-                for _, ch in ipairs(sc:GetChildren()) do
-                    if ch:IsA("GuiObject") and not ch:IsA("UIListLayout") and not ch:IsA("UIPadding") then
-                        tween(ch, { BackgroundTransparency = 1 }, 0.12)
-                        for _, d in ipairs(ch:GetDescendants()) do
-                            if d:IsA("TextLabel") or d:IsA("TextButton") or d:IsA("TextBox") then
-                                pcall(function() tween(d, { TextTransparency = 1 }, 0.1) end)
-                            elseif d:IsA("ImageLabel") or d:IsA("ImageButton") then
-                                pcall(function() tween(d, { ImageTransparency = 1 }, 0.1) end)
-                            elseif d:IsA("Frame") then
-                                pcall(function()
-                                    if d.BackgroundTransparency < 1 then
-                                        tween(d, { BackgroundTransparency = 1 }, 0.1)
-                                    end
-                                end)
-                            end
-                        end
-                    end
-                end
+    -- Tab selection: shell uses BackgroundTransparency (0 = selected overlay, 1 = hidden)
+    local function applyTabVisual(idx, on, animate)
+        local fr = tabFrames[idx]
+        local ic = tabIcons[idx]
+        if fr then
+            if animate then
+                tween(fr, {
+                    BackgroundTransparency = on and 0 or 1,
+                    BackgroundColor3 = Library.Theme.Surface2,
+                }, 0.2, Enum.EasingStyle.Quint)
+            else
+                fr.BackgroundTransparency = on and 0 or 1
+                fr.BackgroundColor3 = Library.Theme.Surface2
+            end
+            fr.Visible = true
+        end
+        if ic then
+            if animate then
+                tween(ic, {
+                    ImageColor3 = on and Library.Theme.Accent or Library.Theme.Dim,
+                }, 0.2, Enum.EasingStyle.Quint)
+            else
+                ic.ImageColor3 = on and Library.Theme.Accent or Library.Theme.Dim
             end
         end
-        task.delay(out and 0.14 or 0, function()
-            if cb then cb() end
-            if not out then return end
-            -- fade back in after tab switch
-            for _, sc in ipairs(targets) do
-                tween(sc, { ScrollBarImageTransparency = 0 }, 0.2)
-                for _, ch in ipairs(sc:GetChildren()) do
-                    if ch:IsA("GuiObject") and ch.Visible and not ch:IsA("UIListLayout") and not ch:IsA("UIPadding") then
-                        -- restore: re-show by resetting transparencies carefully
-                        for _, d in ipairs(ch:GetDescendants()) do
-                            if d:IsA("TextLabel") or d:IsA("TextButton") then
-                                pcall(function()
-                                    d.TextTransparency = 1
-                                    tween(d, { TextTransparency = 0 }, 0.22)
-                                end)
-                            elseif d:IsA("ImageLabel") or d:IsA("ImageButton") then
-                                pcall(function()
-                                    if d.ImageTransparency < 1 then
-                                        local goal = d.ImageTransparency
-                                        d.ImageTransparency = 1
-                                        tween(d, { ImageTransparency = goal }, 0.22)
-                                    else
-                                        d.ImageTransparency = 1
-                                        tween(d, { ImageTransparency = 0 }, 0.22)
-                                    end
-                                end)
-                            end
-                        end
-                    end
-                end
-            end
-        end)
     end
 
     local function selectTab(i)
-        if switching or current == i then return end
+        if switching then return end
+        if current == i then return end
         switching = true
-        local prev = current
         current = i
 
-        for idx, fr in ipairs(tabFrames) do
-            if fr then
-                local on = idx == i
-                tween(fr, {
-                    BackgroundColor3 = on and Library.Theme.Surface2 or Library.Theme.Surface,
-                }, 0.22, Enum.EasingStyle.Quint)
-                if tabIcons[idx] then
-                    tween(tabIcons[idx], {
-                        ImageColor3 = on and Library.Theme.Accent or Library.Theme.Dim,
-                    }, 0.22, Enum.EasingStyle.Quint)
+        for idx = 1, #tabFrames do
+            applyTabVisual(idx, idx == i, true)
+        end
+
+        -- Show only this tab's sections (no aggressive transparency fade that breaks the UI)
+        for ti, list in pairs(tabSections) do
+            local show = (ti == i)
+            for _, sec in ipairs(list) do
+                if sec and sec.Root then
+                    sec.Root.Visible = show
                 end
             end
         end
 
-        fadeContent(true, function()
-            for ti, list in pairs(tabSections) do
-                for _, sec in ipairs(list) do
-                    if sec and sec.Root then
-                        sec.Root.Visible = (ti == i)
-                    end
-                end
-            end
-            if tabs[i] then
+        if tabs[i] then
+            if titleL then
                 titleL.Text = tabs[i].Name or titleL.Text
-                if tabs[i].Subtitle then
-                    subL.Text = tabs[i].Subtitle
-                end
-                titleL.TextTransparency = 1
-                subL.TextTransparency = 1
-                tween(titleL, { TextTransparency = 0 }, 0.25)
-                tween(subL, { TextTransparency = 0 }, 0.28)
             end
-            fadeContent(false)
-            switching = false
-        end)
+            if subL and tabs[i].Subtitle then
+                subL.Text = tabs[i].Subtitle
+            end
+        end
+
+        switching = false
+    end
+
+    -- Init all tab frames as deselected; hide extras until used
+    for idx, fr in ipairs(tabFrames) do
+        if fr then
+            fr.BackgroundColor3 = Library.Theme.Surface2
+            fr.BackgroundTransparency = 1
+            fr.Visible = false
+        end
+        if tabIcons[idx] then
+            tabIcons[idx].ImageColor3 = Library.Theme.Dim
+        end
     end
 
     for i, btn in ipairs(tabButtons) do
         if btn then
             conn(btn.MouseButton1Click, function()
-                selectTab(i)
+                if tabs[i] then
+                    selectTab(i)
+                end
             end)
-            -- hover
             conn(btn.MouseEnter, function()
-                if current ~= i and tabFrames[i] then
-                    tween(tabFrames[i], { BackgroundColor3 = Color3.fromRGB(24, 24, 30) }, 0.15)
+                if current ~= i and tabFrames[i] and tabs[i] then
+                    tween(tabFrames[i], { BackgroundTransparency = 0.55 }, 0.12)
                 end
             end)
             conn(btn.MouseLeave, function()
                 if current ~= i and tabFrames[i] then
-                    tween(tabFrames[i], { BackgroundColor3 = Library.Theme.Surface }, 0.15)
+                    tween(tabFrames[i], { BackgroundTransparency = 1 }, 0.12)
                 end
             end)
         end
     end
 
-    ----------------------------------------------------------------
-    -- Smooth drag (lerp-smoothed)
-    ----------------------------------------------------------------
-    do
-        local dragging = false
-        local startMouse = Vector2.zero
-        local startPos = UDim2.new()
-        local targetPos = UDim2.new()
-        local dragConn
-
-        conn(main.InputBegan, function(input)
-            if input.UserInputType ~= Enum.UserInputType.MouseButton1
-                and input.UserInputType ~= Enum.UserInputType.Touch then
-                return
-            end
-            local rel = input.Position.Y - main.AbsolutePosition.Y
-            if rel > 56 then return end
-            dragging = true
-            startMouse = Vector2.new(input.Position.X, input.Position.Y)
-            startPos = main.Position
-            targetPos = startPos
-            if dragConn then dragConn:Disconnect() end
-            dragConn = RS.RenderStepped:Connect(function(dt)
-                if not dragging then return end
-                -- smooth follow
-                local cur = main.Position
-                local lx = cur.X.Offset + (targetPos.X.Offset - cur.X.Offset) * math.clamp(dt * 18, 0, 1)
-                local ly = cur.Y.Offset + (targetPos.Y.Offset - cur.Y.Offset) * math.clamp(dt * 18, 0, 1)
-                main.Position = UDim2.new(cur.X.Scale, lx, cur.Y.Scale, ly)
-            end)
-            table.insert(Library.Connections, dragConn)
-        end)
-
-        conn(UIS.InputEnded, function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1
-                or input.UserInputType == Enum.UserInputType.Touch then
-                if dragging then
-                    dragging = false
-                    -- settle
-                    tween(main, { Position = targetPos }, 0.18, Enum.EasingStyle.Quint)
-                end
-            end
-        end)
-
-        conn(UIS.InputChanged, function(input)
-            if not dragging then return end
-            if input.UserInputType ~= Enum.UserInputType.MouseMovement
-                and input.UserInputType ~= Enum.UserInputType.Touch then
-                return
-            end
-            local d = Vector2.new(input.Position.X, input.Position.Y) - startMouse
-            targetPos = UDim2.new(
-                startPos.X.Scale,
-                startPos.X.Offset + d.X,
-                startPos.Y.Scale,
-                startPos.Y.Offset + d.Y
-            )
-        end)
-    end
-
-    local menuKey = opts.Keybind or Library.MenuKey
-    conn(UIS.InputBegan, function(input, gp)
-        if gp or Library.Unloaded then return end
-        if input.KeyCode == menuKey then
-            Library.Open = not Library.Open
-            if Library.Open then
-                main.Visible = true
-                main.BackgroundTransparency = 1
-                main.Size = main.Size
-                tween(main, { BackgroundTransparency = 0 }, 0.28, Enum.EasingStyle.Quint)
-            else
-                tween(main, { BackgroundTransparency = 1 }, 0.2, Enum.EasingStyle.Quint)
-                task.delay(0.22, function()
-                    if not Library.Open then
-                        main.Visible = false
-                        main.BackgroundTransparency = 0
-                    end
-                end)
-            end
-        end
-    end)
-
-    local Window = { Shell = a, Main = main, Gui = gui }
-    local tabCount = 0
-
-    function Window:Tab(t)
+        function Window:Tab(t)
         t = t or {}
         tabCount += 1
         local idx = tabCount
-        tabs[idx] = { Name = t.Name or ("Tab " .. idx), Subtitle = t.Subtitle or t.Description }
+        tabs[idx] = { Name = t.Name or ("Tab " .. idx), Subtitle = t.Subtitle or t.Description, Icon = t.Icon }
         tabSections[idx] = {}
 
-        if tabIcons[idx] and t.Icon then
-            local icon = tostring(t.Icon):gsub("rbxassetid://", "")
-            tabIcons[idx].Image = "rbxassetid://" .. icon
+        if idx > #tabFrames then
+            warn("[Destruction] Max " .. #tabFrames .. " tabs in this shell layout (tab "" .. tostring(t.Name) .. "" ignored visually)")
         end
+
         if tabFrames[idx] then
             tabFrames[idx].Visible = true
+            tabFrames[idx].BackgroundTransparency = 1
+            tabFrames[idx].BackgroundColor3 = Library.Theme.Surface2
+        end
+        if tabIcons[idx] then
+            if t.Icon then
+                local icon = tostring(t.Icon)
+                if not icon:find("rbxassetid://") and not icon:find("rbxthumb") then
+                    icon = "rbxassetid://" .. icon:gsub("%D", "")
+                end
+                tabIcons[idx].Image = icon
+            end
+            tabIcons[idx].ImageColor3 = Library.Theme.Dim
+            tabIcons[idx].ImageTransparency = 0
+            tabIcons[idx].Visible = true
         end
 
         if idx == 1 then
@@ -1016,138 +915,237 @@ function Library:Window(opts)
 
             function Section:Slider(o)
                 o = o or {}
-                local flag = o.Flag or o.Name
-                local minv, maxv = o.Min or 0, o.Max or 100
-                local step = o.Float or o.Increment or 1
-                local value = o.Default or minv
-                if flag then Library.Flags[flag] = value end
-                local wrap = row(40)
-                wrap.Size = UDim2.new(1, 0, 0, 40)
+                local flag = o.Flag or o.flag or o.Name
+                local min = tonumber(o.Min or o.min) or 0
+                local max = tonumber(o.Max or o.max) or 100
+                local float = tonumber(o.Float or o.float or o.Increment) or 1
+                local suffix = o.Suffix or o.suffix or ""
+                local cur = tonumber(o.Default or o.default) or min
+                cur = math.clamp(cur, min, max)
+                if flag then Library.Flags[flag] = cur end
+                local r = row(36)
                 local nl = Instance.new("TextLabel")
                 nl.BackgroundTransparency = 1
-                nl.Size = UDim2.new(1, -50, 0, 16)
+                nl.Size = UDim2.new(1, -70, 0, 16)
                 nl.FontFace = FONT
-                nl.TextSize = 13
-                nl.TextColor3 = Library.Theme.Text
+                nl.TextSize = 14
+                nl.TextColor3 = Library.Theme.Dim
                 nl.TextXAlignment = Enum.TextXAlignment.Left
-                nl.Text = o.Name or "Slider"
-                nl.Parent = wrap
-                local vl = Instance.new("TextLabel")
-                vl.BackgroundTransparency = 1
-                vl.AnchorPoint = Vector2.new(1, 0)
-                vl.Position = UDim2.new(1, 0, 0, 0)
-                vl.Size = UDim2.fromOffset(48, 16)
-                vl.FontFace = FONT
-                vl.TextSize = 12
-                vl.TextColor3 = Library.Theme.Dim
-                vl.TextXAlignment = Enum.TextXAlignment.Right
-                vl.Parent = wrap
-                local trackB = Instance.new("Frame")
-                trackB.BackgroundColor3 = Library.Theme.Surface2
-                trackB.BorderSizePixel = 0
-                trackB.Position = UDim2.fromOffset(0, 24)
-                trackB.Size = UDim2.new(1, 0, 0, 6)
-                trackB.Parent = wrap
-                corner(trackB, 3)
+                nl.Text = o.Name or o.name or "Slider"
+                nl.Parent = r
+                local valL = Instance.new("TextLabel")
+                valL.BackgroundTransparency = 1
+                valL.AnchorPoint = Vector2.new(1, 0)
+                valL.Position = UDim2.new(1, 0, 0, 0)
+                valL.Size = UDim2.new(0, 70, 0, 16)
+                valL.FontFace = FONT
+                valL.TextSize = 14
+                valL.TextColor3 = Library.Theme.Text
+                valL.TextXAlignment = Enum.TextXAlignment.Right
+                valL.Text = tostring(cur) .. suffix
+                valL.Parent = r
+                local track = Instance.new("Frame")
+                track.BackgroundColor3 = Library.Theme.Surface2
+                track.BorderSizePixel = 0
+                track.Position = UDim2.fromOffset(0, 22)
+                track.Size = UDim2.new(1, 0, 0, 6)
+                track.Parent = r
+                corner(track, 3)
                 local fill = Instance.new("Frame")
                 fill.BackgroundColor3 = Library.Theme.Accent
                 fill.BorderSizePixel = 0
-                fill.Size = UDim2.new(0, 0, 1, 0)
-                fill.Parent = trackB
+                fill.Size = UDim2.new((cur - min) / math.max(max - min, 1e-9), 0, 1, 0)
+                fill.Parent = track
                 corner(fill, 3)
-                local function set(v, silent)
-                    v = math.clamp(tonumber(v) or minv, minv, maxv)
-                    if step >= 1 then
-                        v = math.floor(v / step + 0.5) * step
-                    else
-                        v = math.floor(v / step + 0.5) * step
-                    end
-                    value = v
-                    if flag then Library.Flags[flag] = value end
-                    local alpha = (value - minv) / math.max(maxv - minv, 1e-9)
-                    tween(fill, { Size = UDim2.new(alpha, 0, 1, 0) }, 0.12, Enum.EasingStyle.Quad)
-                    vl.Text = tostring(value) .. (o.Suffix or "")
-                    if not silent and o.Callback then task.spawn(o.Callback, value) end
+                local function quantize(v)
+                    if float >= 1 then return math.floor(v / float + 0.5) * float end
+                    local d = math.max(1, math.floor(1 / float + 0.5))
+                    return math.floor(v * d + 0.5) / d
                 end
-                local sliding = false
-                conn(trackB.InputBegan, function(i)
-                    if i.UserInputType == Enum.UserInputType.MouseButton1
-                        or i.UserInputType == Enum.UserInputType.Touch then
-                        sliding = true
+                local function apply(v, silent)
+                    v = math.clamp(quantize(v), min, max)
+                    cur = v
+                    if flag then Library.Flags[flag] = cur end
+                    fill.Size = UDim2.new((cur - min) / math.max(max - min, 1e-9), 0, 1, 0)
+                    valL.Text = tostring(cur) .. suffix
+                    if not silent then
+                        if o.Callback then task.spawn(o.Callback, cur) end
+                        if o.callback then task.spawn(o.callback, cur) end
+                    end
+                end
+                local dragging = false
+                conn(track.InputBegan, function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                        dragging = true
+                        local rel = math.clamp((input.Position.X - track.AbsolutePosition.X) / math.max(track.AbsoluteSize.X, 1), 0, 1)
+                        apply(min + rel * (max - min))
                     end
                 end)
-                conn(UIS.InputEnded, function(i)
-                    if i.UserInputType == Enum.UserInputType.MouseButton1
-                        or i.UserInputType == Enum.UserInputType.Touch then
-                        sliding = false
+                conn(UIS.InputEnded, function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                        dragging = false
                     end
                 end)
-                conn(UIS.InputChanged, function(i)
-                    if not sliding then return end
-                    if i.UserInputType ~= Enum.UserInputType.MouseMovement
-                        and i.UserInputType ~= Enum.UserInputType.Touch then
-                        return
-                    end
-                    local rel = (i.Position.X - trackB.AbsolutePosition.X) / math.max(trackB.AbsoluteSize.X, 1)
-                    set(minv + rel * (maxv - minv))
+                conn(UIS.InputChanged, function(input)
+                    if not dragging then return end
+                    if input.UserInputType ~= Enum.UserInputType.MouseMovement and input.UserInputType ~= Enum.UserInputType.Touch then return end
+                    local rel = math.clamp((input.Position.X - track.AbsolutePosition.X) / math.max(track.AbsoluteSize.X, 1), 0, 1)
+                    apply(min + rel * (max - min))
                 end)
-                set(value, true)
-                return { Set = set, Get = function() return value end }
+                if flag then
+                    Library._configHandlers[flag] = { Set = function(v) apply(tonumber(v) or cur, true) end, Get = function() return cur end, Type = "slider" }
+                end
+                return { Set = apply, Get = function() return cur end, Flag = flag }
             end
 
             function Section:Dropdown(o)
                 o = o or {}
-                local flag = o.Flag or o.Name
-                local items = o.Values or o.Items or o.Options or {}
-                local cur = o.Default or items[1]
+                local flag = o.Flag or o.flag or o.Name
+                local items = o.Values or o.Options or o.Items or o.items or o.options or {}
+                local multi = o.MultiSelect or o.multi or false
+                local cur = o.Default or o.default
+                if multi then
+                    if type(cur) ~= "table" then cur = {} end
+                else
+                    cur = cur or items[1]
+                end
                 if flag then Library.Flags[flag] = cur end
-                local wrap = row(44)
-                wrap.Size = UDim2.new(1, 0, 0, 44)
+                local r = row(60)
                 local nl = Instance.new("TextLabel")
                 nl.BackgroundTransparency = 1
-                nl.Size = UDim2.new(1, 0, 0, 16)
+                nl.Position = UDim2.fromOffset(0, -1)
+                nl.Size = UDim2.new(1, -8, 0, 20)
                 nl.FontFace = FONT
-                nl.TextSize = 13
+                nl.TextSize = 14
                 nl.TextColor3 = Library.Theme.Dim
                 nl.TextXAlignment = Enum.TextXAlignment.Left
-                nl.Text = o.Name or "Dropdown"
-                nl.Parent = wrap
-                local box = Instance.new("TextButton")
-                box.AutoButtonColor = false
+                nl.TextYAlignment = Enum.TextYAlignment.Top
+                nl.Text = o.Name or o.name or "Dropdown"
+                nl.Parent = r
+                local box = Instance.new("Frame")
                 box.BackgroundColor3 = Library.Theme.Surface2
                 box.BorderSizePixel = 0
-                box.Position = UDim2.fromOffset(0, 20)
-                box.Size = UDim2.new(1, 0, 0, 24)
-                box.FontFace = FONT
-                box.TextSize = 13
-                box.TextColor3 = Library.Theme.Text
-                box.TextXAlignment = Enum.TextXAlignment.Left
-                box.Text = "  " .. tostring(cur or "Select")
-                box.Parent = wrap
-                corner(box, 4)
-                local idx = 1
-                for i, v in ipairs(items) do
-                    if v == cur then idx = i break end
+                box.Position = UDim2.fromOffset(0, 25)
+                box.Size = UDim2.new(1, 0, 0, 30)
+                box.Parent = r
+                corner(box, 6)
+                local function displayText()
+                    if multi and type(cur) == "table" then
+                        return #cur > 0 and table.concat(cur, ", ") or (o.Placeholder or "None")
+                    end
+                    return tostring(cur or o.Placeholder or "None")
                 end
-                conn(box.MouseButton1Click, function()
-                    if #items == 0 then return end
-                    idx = idx % #items + 1
-                    cur = items[idx]
-                    box.Text = "  " .. tostring(cur)
-                    tween(box, { BackgroundColor3 = Library.Theme.Accent }, 0.08)
-                    task.delay(0.1, function()
-                        tween(box, { BackgroundColor3 = Library.Theme.Surface2 }, 0.2)
-                    end)
-                    if flag then Library.Flags[flag] = cur end
-                    if o.Callback then task.spawn(o.Callback, cur) end
-                end)
-                return {
-                    Set = function(v)
-                        cur = v
-                        box.Text = "  " .. tostring(v)
-                    end,
-                    Get = function() return cur end,
-                }
+                local valL = Instance.new("TextLabel")
+                valL.BackgroundTransparency = 1
+                valL.Position = UDim2.fromOffset(10, 0)
+                valL.Size = UDim2.new(1, -39, 1, 0)
+                valL.FontFace = FONT
+                valL.TextSize = 14
+                valL.TextColor3 = Library.Theme.Text
+                valL.TextXAlignment = Enum.TextXAlignment.Left
+                valL.Text = displayText()
+                valL.Parent = box
+                local chevron = Instance.new("ImageLabel")
+                chevron.BackgroundTransparency = 1
+                chevron.Position = UDim2.new(1, -21, 0, 8)
+                chevron.Size = UDim2.fromOffset(13, 13)
+                chevron.Image = "rbxassetid://127296511745226"
+                chevron.ImageColor3 = Library.Theme.Dim
+                chevron.Parent = box
+                local hit = Instance.new("TextButton")
+                hit.BackgroundTransparency = 1
+                hit.Size = UDim2.fromScale(1, 1)
+                hit.Text = ""
+                hit.ZIndex = 3
+                hit.AutoButtonColor = false
+                hit.Parent = box
+                local open = false
+                local drop
+                local function close()
+                    if drop then drop:Destroy() drop = nil end
+                    open = false
+                    pcall(function() tween(chevron, { Rotation = 0 }, 0.15) end)
+                end
+                local function openDrop()
+                    if open then close() return end
+                    open = true
+                    pcall(function() tween(chevron, { Rotation = 180 }, 0.15) end)
+                    local abs = box.AbsolutePosition
+                    local asz = box.AbsoluteSize
+                    local sg = r:FindFirstAncestorOfClass("ScreenGui") or box
+                    drop = Instance.new("Frame")
+                    drop.BackgroundColor3 = Library.Theme.Background
+                    drop.BorderSizePixel = 0
+                    drop.Position = UDim2.fromOffset(abs.X, abs.Y + asz.Y + 4)
+                    drop.Size = UDim2.fromOffset(asz.X, math.min(28 * math.max(#items, 1) + 10, 180))
+                    drop.ZIndex = 200
+                    drop.Parent = sg
+                    corner(drop, 6)
+                    stroke(drop, Library.Theme.Stroke, 1)
+                    local sc = Instance.new("ScrollingFrame")
+                    sc.BackgroundTransparency = 1
+                    sc.Size = UDim2.fromScale(1, 1)
+                    sc.BorderSizePixel = 0
+                    sc.ScrollBarThickness = 2
+                    sc.CanvasSize = UDim2.new()
+                    sc.AutomaticCanvasSize = Enum.AutomaticSize.Y
+                    sc.ZIndex = 201
+                    sc.Parent = drop
+                    local lay = Instance.new("UIListLayout")
+                    lay.Padding = UDim.new(0, 2)
+                    lay.Parent = sc
+                    local pd = Instance.new("UIPadding")
+                    pd.PaddingTop = UDim.new(0, 4)
+                    pd.PaddingBottom = UDim.new(0, 4)
+                    pd.PaddingLeft = UDim.new(0, 4)
+                    pd.PaddingRight = UDim.new(0, 4)
+                    pd.Parent = sc
+                    for _, it in ipairs(items) do
+                        local b = Instance.new("TextButton")
+                        b.BackgroundColor3 = Library.Theme.Surface2
+                        b.BackgroundTransparency = 1
+                        b.Size = UDim2.new(1, 0, 0, 26)
+                        b.Text = "  " .. tostring(it)
+                        b.TextColor3 = Library.Theme.Text
+                        b.TextSize = 13
+                        b.FontFace = FONT
+                        b.TextXAlignment = Enum.TextXAlignment.Left
+                        b.AutoButtonColor = false
+                        b.ZIndex = 202
+                        b.Parent = sc
+                        corner(b, 4)
+                        conn(b.MouseEnter, function() b.BackgroundTransparency = 0 end)
+                        conn(b.MouseLeave, function() b.BackgroundTransparency = 1 end)
+                        conn(b.MouseButton1Click, function()
+                            if multi then
+                                if type(cur) ~= "table" then cur = {} end
+                                local found
+                                for i, v in ipairs(cur) do
+                                    if v == it then found = i break end
+                                end
+                                if found then table.remove(cur, found) else table.insert(cur, it) end
+                                if flag then Library.Flags[flag] = cur end
+                                valL.Text = displayText()
+                                if o.Callback then task.spawn(o.Callback, cur) end
+                            else
+                                cur = it
+                                if flag then Library.Flags[flag] = cur end
+                                valL.Text = displayText()
+                                if o.Callback then task.spawn(o.Callback, cur) end
+                                close()
+                            end
+                        end)
+                    end
+                end
+                conn(hit.MouseButton1Click, openDrop)
+                if flag then
+                    Library._configHandlers[flag] = {
+                        Set = function(v) cur = v if flag then Library.Flags[flag] = cur end valL.Text = displayText() end,
+                        Get = function() return cur end,
+                        Type = "dropdown",
+                    }
+                end
+                return { Set = function(v) cur = v valL.Text = displayText() end, Get = function() return cur end, Flag = flag }
             end
 
             function Section:Button(o)
@@ -1234,108 +1232,106 @@ function Library:Window(opts)
                 nl.TextXAlignment = Enum.TextXAlignment.Left
                 nl.Text = type(o) == "table" and (o.Text or o.Name) or tostring(o)
                 nl.Parent = r
+                return { Root = r }
             end
 
             function Section:Keybind(o)
                 o = o or {}
-                local flag = o.Flag or o.Name
-                local key = o.Default or Enum.KeyCode.Unknown
-                local mode = o.Mode or "Toggle"
-                local name = o.Name or "Keybind"
-                if flag then Library.Flags[flag] = key end
-                local r = row(22)
+                local flag = o.Flag or o.flag or o.Name
+                local key = o.Default or o.default or o.Key
+                local mode = o.Mode or o.mode or "Toggle"
+                local name = o.Name or o.name or "Keybind"
+                local cb = o.Callback or o.callback
+                if flag then Library.Flags[flag] = { key = key, mode = mode, active = false } end
+                local function keyStr(k)
+                    if not k then return "None" end
+                    if typeof(k) == "EnumItem" then return k.Name end
+                    return tostring(k)
+                end
+                local r = row(20)
                 local nl = Instance.new("TextLabel")
                 nl.BackgroundTransparency = 1
-                nl.Size = UDim2.new(1, -88, 1, 0)
+                nl.Size = UDim2.new(1, -80, 0, 20)
                 nl.FontFace = FONT
                 nl.TextSize = 14
                 nl.TextColor3 = Library.Theme.Text
                 nl.TextXAlignment = Enum.TextXAlignment.Left
                 nl.Text = name
                 nl.Parent = r
-                local b = Instance.new("TextButton")
-                b.AutoButtonColor = false
-                b.BackgroundColor3 = Library.Theme.Surface2
-                b.BorderSizePixel = 0
-                b.AnchorPoint = Vector2.new(1, 0.5)
-                b.Position = UDim2.new(1, 0, 0.5, 0)
-                b.Size = UDim2.fromOffset(78, 20)
-                b.FontFace = FONT
-                b.TextSize = 12
-                b.TextColor3 = Library.Theme.Dim
-                b.Text = (key and key.Name) or "NONE"
-                b.Parent = r
-                corner(b, 4)
+                local box = Instance.new("Frame")
+                box.BackgroundColor3 = Library.Theme.Surface2
+                box.BorderSizePixel = 0
+                box.Position = UDim2.new(1, -72, 0, 0)
+                box.Size = UDim2.fromOffset(72, 20)
+                box.Parent = r
+                corner(box, 4)
+                local kl = Instance.new("TextLabel")
+                kl.BackgroundTransparency = 1
+                kl.Size = UDim2.fromScale(1, 1)
+                kl.FontFace = FONT
+                kl.TextSize = 12
+                kl.TextColor3 = Library.Theme.Text
+                kl.Text = keyStr(key)
+                kl.Parent = box
+                local hit = Instance.new("TextButton")
+                hit.BackgroundTransparency = 1
+                hit.Size = UDim2.fromScale(1, 1)
+                hit.Text = ""
+                hit.ZIndex = 3
+                hit.AutoButtonColor = false
+                hit.Parent = box
                 local listening = false
-                local function pushList()
-                    if Library._keybindListUI and Library._keybindListUI.Upsert then
-                        Library._keybindListUI.Upsert(flag or name, name, key, mode, false)
+                local kbId = tostring(flag or name)
+                Library.Keybinds[kbId] = { Name = name, Key = key, Mode = mode, Active = false }
+                local function refreshList()
+                    if Library._keybindListUI and Library._keybindListUI.Refresh then
+                        Library._keybindListUI.Refresh()
                     end
                 end
-                pushList()
-                conn(b.MouseButton1Click, function()
+                conn(hit.MouseButton1Click, function()
                     listening = true
-                    b.Text = "..."
-                    tween(b, { TextColor3 = Library.Theme.Accent, BackgroundColor3 = Color3.fromRGB(34, 34, 42) }, 0.12)
+                    kl.Text = "..."
+                    kl.TextColor3 = Library.Theme.Accent
                 end)
                 conn(UIS.InputBegan, function(input)
-                    if not listening then return end
-                    if input.UserInputType == Enum.UserInputType.Keyboard then
-                        key = input.KeyCode
-                        b.Text = key.Name
-                        tween(b, { TextColor3 = Library.Theme.Dim, BackgroundColor3 = Library.Theme.Surface2 }, 0.15)
-                        listening = false
-                        if flag then Library.Flags[flag] = key end
-                        pushList()
-                        if o.Callback then task.spawn(o.Callback, key) end
+                    if listening then
+                        if input.UserInputType == Enum.UserInputType.Keyboard then
+                            key = input.KeyCode
+                            if flag and type(Library.Flags[flag]) == "table" then Library.Flags[flag].key = key end
+                            Library.Keybinds[kbId].Key = key
+                            kl.Text = keyStr(key)
+                            kl.TextColor3 = Library.Theme.Text
+                            listening = false
+                            refreshList()
+                        end
+                        return
+                    end
+                    if key and input.KeyCode == key then
+                        local data = flag and Library.Flags[flag]
+                        if mode == "Hold" then
+                            if type(data) == "table" then data.active = true end
+                            Library.Keybinds[kbId].Active = true
+                            if cb then task.spawn(cb, true) end
+                        else
+                            local ns = true
+                            if type(data) == "table" then data.active = not data.active ns = data.active end
+                            Library.Keybinds[kbId].Active = ns
+                            if cb then task.spawn(cb, ns) end
+                        end
+                        refreshList()
                     end
                 end)
-                -- track active state for hold/toggle modes
-                local active = false
-                if mode == "Hold" or mode == "Toggle" then
-                    conn(UIS.InputBegan, function(input, gp)
-                        if gp or listening or Library.Unloaded then return end
-                        if input.KeyCode == key then
-                            if mode == "Hold" then
-                                active = true
-                            else
-                                active = not active
-                            end
-                            pushList()
-                            if Library._keybindListUI and Library._keybindListUI.SetActive then
-                                Library._keybindListUI.SetActive(flag or name, active)
-                            end
-                        end
-                    end)
-                    if mode == "Hold" then
-                        conn(UIS.InputEnded, function(input)
-                            if input.KeyCode == key then
-                                active = false
-                                if Library._keybindListUI and Library._keybindListUI.SetActive then
-                                    Library._keybindListUI.SetActive(flag or name, false)
-                                end
-                            end
-                        end)
+                conn(UIS.InputEnded, function(input)
+                    if mode == "Hold" and key and input.KeyCode == key then
+                        local data = flag and Library.Flags[flag]
+                        if type(data) == "table" then data.active = false end
+                        Library.Keybinds[kbId].Active = false
+                        if cb then task.spawn(cb, false) end
+                        refreshList()
                     end
-                end
-                Library._configHandlers[flag or name] = {
-                    Type = "keybind",
-                    Set = function(v, silent)
-                        if typeof(v) == "EnumItem" then
-                            key = v
-                            b.Text = key.Name
-                            if flag then Library.Flags[flag] = key end
-                            pushList()
-                        end
-                    end,
-                    Get = function() return key end,
-                }
-                return { Get = function() return key end, Set = function(v)
-                    key = v
-                    b.Text = (v and v.Name) or "NONE"
-                    if flag then Library.Flags[flag] = key end
-                    pushList()
-                end }
+                end)
+                refreshList()
+                return { Flag = flag, Get = function() return key end }
             end
 
             function Section:Colorpicker(o)
@@ -1623,6 +1619,13 @@ function Library:KeybindList(opts)
             local kb = Library.Keybinds[id]
             if kb then upsert(id, kb.Name, key, kb.Mode, kb.Active) end
         end,
+        Refresh = function()
+            for id, kb in pairs(Library.Keybinds) do
+                local key = kb.Key
+                local keyName = (typeof(key) == "EnumItem" and key.Name) or tostring(key or "None")
+                upsert(id, kb.Name or id, keyName, kb.Mode or "Toggle", kb.Active)
+            end
+        end,
         SetVisible = function(_, v)
             panel.Visible = v ~= false
             if v then
@@ -1639,6 +1642,8 @@ function Library:KeybindList(opts)
         end,
     }
     Library._keybindListUI = api
+    -- initial populate
+    api.Refresh()
     return api
 end
 
@@ -1720,21 +1725,30 @@ function Library:BuildConfigPage(tab, opts)
 
     -- Right: listed configs as buttons
     right:Label({ Text = "Saved configs appear below" })
-    local listSection = right
 
     local listRows = {}
-    local function refresh()
+    local function clearList()
         for _, r in ipairs(listRows) do
-            pcall(function() r:Destroy() end)
+            pcall(function()
+                if type(r) == "table" and r.Root then
+                    r.Root:Destroy()
+                elseif typeof(r) == "Instance" then
+                    r:Destroy()
+                end
+            end)
         end
         listRows = {}
+    end
+
+    local function refresh()
+        clearList()
         local names = listConfigFiles()
         if #names == 0 then
-            listSection:Label({ Text = "(no configs yet)" })
+            table.insert(listRows, right:Label({ Text = "(no configs yet)" }))
             return
         end
         for _, n in ipairs(names) do
-            listSection:Button({
+            local btn = right:Button({
                 Name = n,
                 Callback = function()
                     selected.name = n
@@ -1744,10 +1758,13 @@ function Library:BuildConfigPage(tab, opts)
                     end)
                     if ok and type(data) == "table" then
                         deserializeFlags(data)
-                        Library:Notify({ Title = "Config", Content = "Loaded \"" .. n .. "\"" })
+                        Library:Notify({ Title = "Config", Content = "Loaded "" .. n .. """ })
+                    else
+                        Library:Notify({ Title = "Config", Content = "Failed to load "" .. n .. """ })
                     end
                 end,
             })
+            table.insert(listRows, btn)
         end
     end
     Library._refreshConfigList = refresh
