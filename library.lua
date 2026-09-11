@@ -1,3 +1,4 @@
+-- DESTRUCTION_LIB_VERSION = 2026-09-11-c
 --[[
   Destruction UI — polished shell library
   exact_clone_open.lua beside this file, or HttpGet from repo.
@@ -463,6 +464,7 @@ end
 -- Window
 ----------------------------------------------------------------
 function Library:Window(opts)
+    -- DESTRUCTION_LIB_VERSION 2026-09-11-c
     opts = opts or {}
     local a = loadShell()
     local gui = a.ScreenGui
@@ -679,7 +681,7 @@ function Library:Window(opts)
     }
     local tabCount = 0
 
-    function Window:Tab(t)
+    Window.Tab = function(self, t)
 
         t = t or {}
         tabCount += 1
@@ -1398,7 +1400,7 @@ function Library:Window(opts)
         return Tab
     end
 
-    function Window:Unload()
+    Window.Unload = function(self)
         Library.Unloaded = true
         for _, c in ipairs(Library.Connections) do
             pcall(function() c:Disconnect() end)
@@ -1412,7 +1414,7 @@ function Library:Window(opts)
         end)
     end
 
-    function Window:SaveConfig(name)
+    Window.SaveConfig = function(self, name)
         name = name or "default"
         ensureDir()
         pcall(function()
@@ -1422,7 +1424,7 @@ function Library:Window(opts)
         if Library._refreshConfigList then pcall(Library._refreshConfigList) end
     end
 
-    function Window:LoadConfig(name)
+    Window.LoadConfig = function(self, name)
         name = name or "default"
         local ok, data = pcall(function()
             return HS:JSONDecode(readfile(Library.Directory .. "/configs/" .. name .. ".json"))
@@ -1435,7 +1437,7 @@ function Library:Window(opts)
         end
     end
 
-    function Window:BuildConfigPage(tab, opts)
+    Window.BuildConfigPage = function(self, tab, opts)
         return Library:BuildConfigPage(tab, opts)
     end
 
