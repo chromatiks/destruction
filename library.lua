@@ -680,7 +680,7 @@ function Library:Window(opts)
         tabSections[idx] = {}
 
         if idx > #tabFrames then
-            warn("[Destruction] Max " .. #tabFrames .. " tabs in this shell layout (tab "" .. tostring(t.Name) .. "" ignored visually)")
+            warn("[Destruction] Max " .. tostring(#tabFrames) .. " tabs in this shell layout (tab " .. tostring(t.Name) .. " ignored visually)")
         end
 
         if tabFrames[idx] then
@@ -1758,9 +1758,9 @@ function Library:BuildConfigPage(tab, opts)
                     end)
                     if ok and type(data) == "table" then
                         deserializeFlags(data)
-                        Library:Notify({ Title = "Config", Content = "Loaded "" .. n .. """ })
+                        Library:Notify({ Title = "Config", Content = "Loaded " .. tostring(n) })
                     else
-                        Library:Notify({ Title = "Config", Content = "Failed to load "" .. n .. """ })
+                        Library:Notify({ Title = "Config", Content = "Failed to load " .. tostring(n) })
                     end
                 end,
             })
