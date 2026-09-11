@@ -672,7 +672,15 @@ function Library:Window(opts)
         end
     end
 
-        function Window:Tab(t)
+    local Window = {
+        Shell = a,
+        Main = main,
+        Gui = gui,
+    }
+    local tabCount = 0
+
+    function Window:Tab(t)
+
         t = t or {}
         tabCount += 1
         local idx = tabCount
@@ -1431,9 +1439,81 @@ function Library:Window(opts)
         return Library:BuildConfigPage(tab, opts)
     end
 
+    -- smooth drag on main frame
+    do
+        local dragging, startMouse, startPos, targetPos
+        local dragConn
+        conn(main.InputBegan, function(input)
+            if input.UserInputType ~= Enum.UserInputType.MouseButton1
+                and input.UserInputType ~= Enum.UserInputType.Touch then
+                return
+            end
+            dragging = true
+            startMouse = Vector2.new(input.Position.X, input.Position.Y)
+            startPos = main.Position
+            targetPos = startPos
+            if dragConn then dragConn:Disconnect() end
+            dragConn = RS.RenderStepped:Connect(function(dt)
+                if not dragging then return end
+                local cur = main.Position
+                local lx = cur.X.Offset + (targetPos.X.Offset - cur.X.Offset) * math.clamp(dt * 18, 0, 1)
+                local ly = cur.Y.Offset + (targetPos.Y.Offset - cur.Y.Offset) * math.clamp(dt * 18, 0, 1)
+                main.Position = UDim2.new(cur.X.Scale, lx, cur.Y.Scale, ly)
+            end)
+            table.insert(Library.Connections, dragConn)
+        end)
+        conn(UIS.InputEnded, function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1
+                or input.UserInputType == Enum.UserInputType.Touch then
+                if dragging then
+                    dragging = false
+                    if targetPos then
+                        tween(main, { Position = targetPos }, 0.18, Enum.EasingStyle.Quint)
+                    end
+                end
+            end
+        end)
+        conn(UIS.InputChanged, function(input)
+            if not dragging then return end
+            if input.UserInputType ~= Enum.UserInputType.MouseMovement
+                and input.UserInputType ~= Enum.UserInputType.Touch then
+                return
+            end
+            local d = Vector2.new(input.Position.X, input.Position.Y) - startMouse
+            targetPos = UDim2.new(
+                startPos.X.Scale,
+                startPos.X.Offset + d.X,
+                startPos.Y.Scale,
+                startPos.Y.Offset + d.Y
+            )
+        end)
+    end
+
+    local menuKey = opts.Keybind or Library.MenuKey or Enum.KeyCode.LeftAlt
+    Library.Open = true
+    conn(UIS.InputBegan, function(input, gp)
+        if gp or Library.Unloaded then return end
+        if input.KeyCode == menuKey then
+            Library.Open = not Library.Open
+            if Library.Open then
+                main.Visible = true
+                main.BackgroundTransparency = 1
+                tween(main, { BackgroundTransparency = 0 }, 0.28, Enum.EasingStyle.Quint)
+            else
+                tween(main, { BackgroundTransparency = 1 }, 0.2, Enum.EasingStyle.Quint)
+                task.delay(0.22, function()
+                    if not Library.Open then
+                        main.Visible = false
+                        main.BackgroundTransparency = 0
+                    end
+                end)
+            end
+        end
+    end)
+
     Library:Notify({
         Title = opts.Name or "Destruction",
-        Content = "Ready · " .. (menuKey and menuKey.Name or "LeftAlt") .. " toggles",
+        Content = "Ready · " .. (menuKey.Name or "LeftAlt") .. " toggles",
         Duration = 3,
     })
     return Window
