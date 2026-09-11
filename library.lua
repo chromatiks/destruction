@@ -244,55 +244,91 @@ function Library:Watermark(opts)
     sg.DisplayOrder = 100
     protect(sg)
 
+    -- exact clone: h=38, bg 17,17,22, top-right, stroke 33,33,38, pad L12 R22
     local f = Instance.new("Frame")
-    f.BackgroundColor3 = Library.Theme.Surface2
+    f.Active = true
+    f.BackgroundColor3 = Color3.fromRGB(17, 17, 22)
     f.BorderSizePixel = 0
-    f.Position = UDim2.fromOffset(12, 12)
-    f.Size = UDim2.fromOffset(0, 32)
+    f.AnchorPoint = Vector2.new(1, 0)
+    f.Position = UDim2.new(1, -15, 0, 12)
+    f.Size = UDim2.new(0, 0, 0, 38)
     f.AutomaticSize = Enum.AutomaticSize.X
     f.Parent = sg
     corner(f, 6)
-    stroke(f, Library.Theme.Elevated, 1)
-    padding(f, 0, 0, 10, 12)
+    local st = stroke(f, Color3.fromRGB(33, 33, 38), 1)
+    local pad = Instance.new("UIPadding")
+    pad.PaddingLeft = UDim.new(0, 12)
+    pad.PaddingRight = UDim.new(0, 22)
+    pad.Parent = f
 
     local list = Instance.new("UIListLayout")
     list.FillDirection = Enum.FillDirection.Horizontal
     list.VerticalAlignment = Enum.VerticalAlignment.Center
-    list.Padding = UDim.new(0, 8)
+    list.Padding = UDim.new(0, 10)
     list.SortOrder = Enum.SortOrder.LayoutOrder
     list.Parent = f
 
-    local function chip(text, order)
+    local function chipIcon(asset, order)
+        local hold = Instance.new("Frame")
+        hold.BackgroundTransparency = 1
+        hold.Size = UDim2.fromOffset(0, 38)
+        hold.AutomaticSize = Enum.AutomaticSize.X
+        hold.LayoutOrder = order
+        hold.Parent = f
+        local hl = Instance.new("UIListLayout")
+        hl.FillDirection = Enum.FillDirection.Horizontal
+        hl.VerticalAlignment = Enum.VerticalAlignment.Center
+        hl.Padding = UDim.new(0, 6)
+        hl.Parent = hold
+        local ic = Instance.new("ImageLabel")
+        ic.BackgroundTransparency = 1
+        ic.Size = UDim2.fromOffset(14, 14)
+        ic.Image = "rbxassetid://" .. tostring(asset):gsub("rbxassetid://", "")
+        ic.ImageColor3 = Color3.fromRGB(255, 255, 255)
+        ic.Parent = hold
         local l = Instance.new("TextLabel")
         l.BackgroundTransparency = 1
-        l.Size = UDim2.fromOffset(0, 32)
+        l.Size = UDim2.fromOffset(0, 38)
         l.AutomaticSize = Enum.AutomaticSize.X
         l.FontFace = FONT
-        l.TextSize = 13
-        l.TextColor3 = Library.Theme.Text
-        l.Text = text
-        l.LayoutOrder = order or 0
-        l.Parent = f
-        return l
+        l.TextSize = 15
+        l.TextColor3 = Color3.fromRGB(255, 255, 255)
+        l.Text = ""
+        l.Parent = hold
+        return l, hold
     end
 
-    local function sep(order)
-        local s = Instance.new("Frame")
-        s.BackgroundColor3 = Library.Theme.Elevated
-        s.BorderSizePixel = 0
-        s.Size = UDim2.fromOffset(1, 14)
-        s.LayoutOrder = order
-        s.Parent = f
-        return s
-    end
+    -- logo slot
+    local logoHold = Instance.new("Frame")
+    logoHold.BackgroundTransparency = 1
+    logoHold.Size = UDim2.fromOffset(21, 38)
+    logoHold.LayoutOrder = 1
+    logoHold.Parent = f
+    local logo = Instance.new("ImageLabel")
+    logo.BackgroundTransparency = 1
+    logo.AnchorPoint = Vector2.new(0.5, 0.5)
+    logo.Position = UDim2.fromScale(0.5, 0.5)
+    logo.Size = UDim2.fromOffset(16, 16)
+    logo.Image = "rbxassetid://" .. tostring(opts.Icon or "81603686073386"):gsub("rbxassetid://", "")
+    logo.Parent = logoHold
 
-    local nameL = chip(opts.Text or "Destruction", 1)
-    sep(2)
-    local gameL = chip("...", 3)
-    sep(4)
-    local userL = chip(LP.Name, 5)
-    sep(6)
-    local fpsL = chip("0 FPS", 7)
+    -- accent bar 2x38
+    local bar = Instance.new("Frame")
+    bar.BackgroundColor3 = Library.Theme.Accent
+    bar.BorderSizePixel = 0
+    bar.Size = UDim2.fromOffset(2, 38)
+    bar.LayoutOrder = 2
+    bar.Parent = f
+    trackTheme(bar, "BackgroundColor3")
+
+    local nameL = select(1, chipIcon("10723407389", 3))
+    nameL.Text = opts.Text or "Destruction"
+    local userL = select(1, chipIcon("10723407389", 4))
+    userL.Text = LP.Name
+    local fpsL = select(1, chipIcon("121808839832144", 5))
+    fpsL.Text = "0 FPS"
+    local gameL = select(1, chipIcon("92483947987410", 6))
+    gameL.Text = "..."
 
     pcall(function()
         local info = MarketplaceService:GetProductInfo(game.PlaceId)
@@ -310,18 +346,28 @@ function Library:Watermark(opts)
         end
     end)
 
+    -- fade in
+    f.BackgroundTransparency = 1
+    tween(f, { BackgroundTransparency = 0 }, 0.25)
+
     Library:MakeDraggable(f)
     return {
         SetText = function(_, t) nameL.Text = t end,
-        SetVisible = function(_, v) f.Visible = v and true or false end,
+        SetVisible = function(_, v)
+            if v then
+                f.Visible = true
+                f.BackgroundTransparency = 1
+                tween(f, { BackgroundTransparency = 0 }, 0.2)
+            else
+                tween(f, { BackgroundTransparency = 1 }, 0.15)
+                task.delay(0.15, function() f.Visible = false end)
+            end
+        end,
         Gui = sg,
         Frame = f,
     }
 end
 
-----------------------------------------------------------------
--- Keybind list
-----------------------------------------------------------------
 function Library:KeybindList()
     local sg = Instance.new("ScreenGui")
     sg.Name = "DestKeybinds"
@@ -506,7 +552,14 @@ function Library:Window(opts)
         if gp or Library.Unloaded then return end
         if input.KeyCode == menuKey then
             Library.Open = not Library.Open
-            main.Visible = Library.Open
+            if Library.Open then
+                main.Visible = true
+                main.BackgroundTransparency = 1
+                tween(main, { BackgroundTransparency = 0 }, 0.22)
+            else
+                local tw = tween(main, { BackgroundTransparency = 1 }, 0.18)
+                task.delay(0.18, function() if not Library.Open then main.Visible = false main.BackgroundTransparency = 0 end end)
+            end
         end
     end)
 
@@ -615,7 +668,7 @@ function Library:Window(opts)
             head.Size = UDim2.new(1, -20, 0, 30)
             head.Position = UDim2.fromOffset(12, 0)
             head.FontFace = FONT
-            head.TextSize = 13
+            head.TextSize = 14
             head.TextColor3 = Library.Theme.Text
             head.TextXAlignment = Enum.TextXAlignment.Left
             head.Text = s.Name or "Section"
@@ -658,29 +711,31 @@ function Library:Window(opts)
                 local r = baseRow(28)
                 local nl = Instance.new("TextLabel")
                 nl.BackgroundTransparency = 1
-                nl.Size = UDim2.new(1, -40, 1, 0)
+                nl.Size = UDim2.new(1, -50, 1, 0)
                 nl.FontFace = FONT
-                nl.TextSize = 13
-                nl.TextColor3 = Library.Theme.Text
+                nl.TextSize = 14
+                nl.TextColor3 = Color3.fromRGB(255, 255, 255)
                 nl.TextXAlignment = Enum.TextXAlignment.Left
+                nl.TextYAlignment = Enum.TextYAlignment.Center
                 nl.Text = o.Name or "Toggle"
                 nl.Parent = r
-                local box = Instance.new("Frame")
-                box.AnchorPoint = Vector2.new(1, 0.5)
-                box.Position = UDim2.new(1, 0, 0.5, 0)
-                box.Size = UDim2.fromOffset(20, 20)
-                box.BackgroundColor3 = state and Library.Theme.Accent or Library.Theme.Elevated
-                box.BorderSizePixel = 0
-                box.Parent = r
-                corner(box, 4)
-                trackTheme(box, "BackgroundColor3")
-                local ck = Instance.new("ImageLabel")
-                ck.BackgroundTransparency = 1
-                ck.Position = UDim2.fromOffset(4, 4)
-                ck.Size = UDim2.fromOffset(12, 12)
-                ck.Image = "rbxassetid://6031094667"
-                ck.ImageTransparency = state and 0 or 1
-                ck.Parent = box
+                -- pill track 27x16 fully rounded (exact clone)
+                local track = Instance.new("Frame")
+                track.AnchorPoint = Vector2.new(1, 0)
+                track.Position = UDim2.new(1, -2, 0, 6)
+                track.Size = UDim2.fromOffset(27, 16)
+                track.BackgroundColor3 = state and Library.Theme.Accent or Color3.fromRGB(27, 27, 35)
+                track.BorderSizePixel = 0
+                track.Parent = r
+                corner(track, 8)
+                trackTheme(track, "BackgroundColor3")
+                local knob = Instance.new("Frame")
+                knob.Size = UDim2.fromOffset(10, 10)
+                knob.Position = state and UDim2.fromOffset(15, 3) or UDim2.fromOffset(3, 3)
+                knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+                knob.BorderSizePixel = 0
+                knob.Parent = track
+                corner(knob, 5)
                 local hitB = Instance.new("TextButton")
                 hitB.BackgroundTransparency = 1
                 hitB.Size = UDim2.fromScale(1, 1)
@@ -689,12 +744,11 @@ function Library:Window(opts)
                 local function set(v, silent)
                     state = not not v
                     if flag then Library.Flags[flag] = state end
-                    tween(box, { BackgroundColor3 = state and Library.Theme.Accent or Library.Theme.Elevated }, 0.12)
-                    tween(ck, { ImageTransparency = state and 0 or 1 }, 0.12)
+                    tween(track, { BackgroundColor3 = state and Library.Theme.Accent or Color3.fromRGB(27, 27, 35) }, 0.15)
+                    tween(knob, { Position = state and UDim2.fromOffset(15, 3) or UDim2.fromOffset(3, 3) }, 0.15, Enum.EasingStyle.Quad)
                     if not silent and o.Callback then task.spawn(o.Callback, state) end
                 end
                 conn(hitB.MouseButton1Click, function() set(not state) end)
-                table.insert(Library._toggles, { box = box, get = function() return state end })
                 return { Set = set, Get = function() return state end }
             end
 
