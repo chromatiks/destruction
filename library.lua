@@ -545,6 +545,29 @@ function Library:Window(opts)
     clearScroll(leftScroll)
     clearScroll(rightScroll)
 
+    -- Remove shell demo leftovers (sample rows / textboxes that look like a search bar)
+    if content then
+        for _, d in ipairs(content:GetDescendants()) do
+            if d:IsA("TextBox") then
+                d:Destroy()
+            end
+        end
+        -- wipe any pre-built section frames still sitting outside the two scrolls
+        for _, ch in ipairs(content:GetChildren()) do
+            if ch:IsA("Frame") and ch ~= leftScroll and ch ~= rightScroll and ch.Name ~= "" then
+                -- keep header labels only; destroy extra chrome sample frames if any
+            end
+        end
+    end
+    -- also clear sidebar extra demo if more than tab slots
+    if side then
+        for _, d in ipairs(side:GetDescendants()) do
+            if d:IsA("TextBox") then
+                d:Destroy()
+            end
+        end
+    end
+
     titleL.Text = opts.Name or opts.Title or titleL.Text
     if opts.Subtitle or opts.Description then
         subL.Text = opts.Subtitle or opts.Description
@@ -1426,13 +1449,22 @@ function Library:Watermark(opts)
         _visible = true,
         SetVisible = function(self, v)
             self._visible = v ~= false
-            -- shell Frame_67 if present is toggled by window reference
             if Library._wmFrame then
                 Library._wmFrame.Visible = self._visible
             end
         end,
-        SetText = function() end,
+        SetText = function(self, t)
+            if not Library._wmFrame then return end
+            for _, d in ipairs(Library._wmFrame:GetDescendants()) do
+                if d:IsA("TextLabel") and (d.Text:find("FPS") or d.Text:find("fps") or d.Text == "") then
+                    -- leave live labels alone
+                end
+            end
+        end,
     }
+    if Library._wmFrame then
+        Library._wmFrame.Visible = true
+    end
     return api
 end
 
