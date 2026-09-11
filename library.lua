@@ -2908,7 +2908,6 @@ end
 
 function library:dropdown(options)
     options = options or {}
-    -- Accept Destruction / Evenesce style keys alongside Glacier lowercase
     local optList = options.items or options.Items
         or options.Options or options.options
         or options.Values or options.values
@@ -2922,7 +2921,6 @@ function library:dropdown(options)
         flag = options.flag or options.Flag or library:next_flag(),
         callback = options.callback or options.Callback or function() end,
         placeholder = options.placeholder or options.Placeholder or "Select...",
-        searchable = options.searchable ~= false and options.Searchable ~= false,
         items = {},
         value = nil,
         open = false,
@@ -2930,7 +2928,7 @@ function library:dropdown(options)
 
     if cfg.multi then
         if type(cfg.default) == "table" then
-            cfg.value = { unpack(cfg.default) }
+            cfg.value = table.clone and table.clone(cfg.default) or { table.unpack(cfg.default) }
         else
             cfg.value = {}
         end
@@ -3440,59 +3438,52 @@ function library:dropdown(options)
     return setmetatable(cfg, library)
 end
 
-----------------------------------------------------------------
--- Range slider (min/max dual handle) — Destruction/Evenesce style
-----------------------------------------------------------------
 function library:rangeslider(options)
     options = options or {}
     local cfg = {
         name = options.name or options.Name or "Range",
-        min = options.min or options.Min or 0,
-        max = options.max or options.Max or 100,
-        float = options.float or options.Float or options.Increment or 1,
-        default_min = options.default_min or options.DefaultMin or options.min or options.Min or 0,
-        default_max = options.default_max or options.DefaultMax or options.max or options.Max or 100,
-        min_gap = options.min_gap or options.MinGap or 0,
+        min = tonumber(options.min or options.Min) or 0,
+        max = tonumber(options.max or options.Max) or 100,
+        float = tonumber(options.float or options.Float or options.Increment) or 1,
+        min_gap = tonumber(options.min_gap or options.MinGap) or 0,
         suffix = options.suffix or options.Suffix or "",
         flag = options.flag or options.Flag or library:next_flag(),
         callback = options.callback or options.Callback or function() end,
         items = {},
     }
-    cfg.default_min = math.clamp(cfg.default_min, cfg.min, cfg.max)
-    cfg.default_max = math.clamp(cfg.default_max, cfg.min, cfg.max)
-    if cfg.default_max < cfg.default_min then
-        cfg.default_min, cfg.default_max = cfg.default_max, cfg.default_min
+    local lo = tonumber(options.default_min or options.DefaultMin or cfg.min) or cfg.min
+    local hi = tonumber(options.default_max or options.DefaultMax or cfg.max) or cfg.max
+    lo = math.clamp(lo, cfg.min, cfg.max)
+    hi = math.clamp(hi, cfg.min, cfg.max)
+    if hi < lo then lo, hi = hi, lo end
+    if hi - lo < cfg.min_gap then
+        hi = math.min(cfg.max, lo + cfg.min_gap)
     end
-    if cfg.default_max - cfg.default_min < cfg.min_gap then
-        cfg.default_max = math.min(cfg.max, cfg.default_min + cfg.min_gap)
-    end
-
-    local lo, hi = cfg.default_min, cfg.default_max
     flags[cfg.flag] = { Min = lo, Max = hi }
 
     local items = cfg.items
-    items["wrap"] = library:create("Frame", {
+    items.wrap = library:create("Frame", {
         Parent = self.items["elements"],
         BackgroundTransparency = 1,
         Size = dim2(1, 0, 0, 48),
         BorderSizePixel = 0,
     })
-    items["name"] = library:create("TextLabel", {
-        Parent = items["wrap"],
+    items.name = library:create("TextLabel", {
+        Parent = items.wrap,
         FontFace = fonts.font,
         Text = cfg.name,
         TextSize = 15,
         TextColor3 = themes.preset.dimtext,
         BackgroundTransparency = 1,
-        Size = dim2(1, -80, 0, 16),
+        Size = dim2(1, -90, 0, 16),
         Position = dim2(0, 5, 0, 0),
         TextXAlignment = Enum.TextXAlignment.Left,
         BorderSizePixel = 0,
     })
-    items["value"] = library:create("TextLabel", {
-        Parent = items["wrap"],
+    items.value = library:create("TextLabel", {
+        Parent = items.wrap,
         FontFace = fonts.font,
-        Text = tostring(lo) .. cfg.suffix .. " – " .. tostring(hi) .. cfg.suffix,
+        Text = tostring(lo) .. cfg.suffix .. " - " .. tostring(hi) .. cfg.suffix,
         TextSize = 13,
         TextColor3 = themes.preset.text,
         BackgroundTransparency = 1,
@@ -3502,26 +3493,26 @@ function library:rangeslider(options)
         TextXAlignment = Enum.TextXAlignment.Right,
         BorderSizePixel = 0,
     })
-    items["track"] = library:create("Frame", {
-        Parent = items["wrap"],
+    items.track = library:create("Frame", {
+        Parent = items.wrap,
         BackgroundColor3 = themes.preset.light,
         Position = dim2(0, 5, 0, 28),
         Size = dim2(1, -10, 0, 6),
         BorderSizePixel = 0,
     })
-    library:create("UICorner", { Parent = items["track"], CornerRadius = dim(0, 3) })
-    items["fill"] = library:create("Frame", {
-        Parent = items["track"],
+    library:create("UICorner", { Parent = items.track, CornerRadius = dim(0, 3) })
+    items.fill = library:create("Frame", {
+        Parent = items.track,
         BackgroundColor3 = themes.preset.accent,
         Size = dim2(0, 0, 1, 0),
         BorderSizePixel = 0,
     })
-    library:apply_theme(items["fill"], "accent", "BackgroundColor3")
-    library:create("UICorner", { Parent = items["fill"], CornerRadius = dim(0, 3) })
+    library:apply_theme(items.fill, "accent", "BackgroundColor3")
+    library:create("UICorner", { Parent = items.fill, CornerRadius = dim(0, 3) })
 
     local function makeKnob()
         local k = library:create("Frame", {
-            Parent = items["track"],
+            Parent = items.track,
             AnchorPoint = vec2(0.5, 0.5),
             Position = dim2(0, 0, 0.5, 0),
             Size = dim2(0, 14, 0, 14),
@@ -3537,9 +3528,6 @@ function library:rangeslider(options)
 
     local function quantize(v)
         local s = cfg.float
-        if s >= 1 then
-            return math.floor(v / s + 0.5) * s
-        end
         return math.floor(v / s + 0.5) * s
     end
 
@@ -3547,33 +3535,26 @@ function library:rangeslider(options)
         local span = math.max(cfg.max - cfg.min, 1e-9)
         local a = (lo - cfg.min) / span
         local b = (hi - cfg.min) / span
-        items["fill"].Position = dim2(a, 0, 0, 0)
-        items["fill"].Size = dim2(math.max(b - a, 0), 0, 1, 0)
+        items.fill.Position = dim2(a, 0, 0, 0)
+        items.fill.Size = dim2(math.max(b - a, 0), 0, 1, 0)
         knobLo.Position = dim2(a, 0, 0.5, 0)
         knobHi.Position = dim2(b, 0, 0.5, 0)
-        local fmt = function(x)
-            if cfg.float < 1 then
-                return string.format("%." .. tostring(math.max(0, select(2, string.gsub(tostring(cfg.float), "%d", "")) or 2)) .. "f", x)
-            end
-            return tostring(math.floor(x + 0.5))
-        end
-        -- simpler format
-        items["value"].Text = tostring(lo) .. cfg.suffix .. " – " .. tostring(hi) .. cfg.suffix
+        items.value.Text = tostring(lo) .. cfg.suffix .. " - " .. tostring(hi) .. cfg.suffix
         flags[cfg.flag] = { Min = lo, Max = hi }
         if not silent then
             task.spawn(cfg.callback, lo, hi)
         end
     end
 
-    local dragging = nil -- "lo" | "hi"
+    local dragging = nil
     local function valueFromX(x)
-        local absPos = items["track"].AbsolutePosition.X
-        local absSize = math.max(items["track"].AbsoluteSize.X, 1)
+        local absPos = items.track.AbsolutePosition.X
+        local absSize = math.max(items.track.AbsoluteSize.X, 1)
         local rel = clamp((x - absPos) / absSize, 0, 1)
         return quantize(cfg.min + rel * (cfg.max - cfg.min))
     end
 
-    local function onDown(input)
+    items.track.InputBegan:Connect(function(input)
         if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then
             return
         end
@@ -3588,16 +3569,14 @@ function library:rangeslider(options)
         lo = clamp(lo, cfg.min, cfg.max)
         hi = clamp(hi, cfg.min, cfg.max)
         apply()
-    end
-
-    items["track"].InputBegan:Connect(onDown)
-    knobLo.InputBegan:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+    end)
+    knobLo.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = "lo"
         end
     end)
-    knobHi.InputBegan:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+    knobHi.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = "hi"
         end
     end)
@@ -3627,7 +3606,9 @@ function library:rangeslider(options)
         end
         lo = clamp(quantize(tonumber(a) or lo), cfg.min, cfg.max)
         hi = clamp(quantize(tonumber(b) or hi), cfg.min, cfg.max)
-        if hi < lo then lo, hi = hi, lo end
+        if hi < lo then
+            lo, hi = hi, lo
+        end
         if hi - lo < cfg.min_gap then
             hi = math.min(cfg.max, lo + cfg.min_gap)
         end
@@ -3636,9 +3617,10 @@ function library:rangeslider(options)
 
     apply(true)
     config_flags[cfg.flag] = function(v)
-        if type(v) == "table" then cfg.set(v.Min or v[1], v.Max or v[2], true) end
+        if type(v) == "table" then
+            cfg.set(v.Min or v[1], v.Max or v[2], true)
+        end
     end
-
     return setmetatable(cfg, library)
 end
 
@@ -3713,8 +3695,8 @@ function library:textbox(options)
         name = options.name or options.Name or "TextBox",
         placeholder = options.placeholder or options.Placeholder or options.placeholdertext or options.holder or "type here...",
         default = options.default or options.Default or "",
-        flag = options.flag or library:next_flag(),
-        callback = options.callback or function() end,
+        flag = options.flag or options.Flag or library:next_flag(),
+        callback = options.callback or options.Callback or function() end,
         items = {},
     }
 
@@ -3841,9 +3823,9 @@ function library:keybind(options)
         flag = options.flag or options.Flag or library:next_flag(),
         callback = options.callback or options.Callback or function() end,
         name = options.name or options.Name or nil,
-        key = options.key or options.Key or options.Default or nil,
+        key = options.key or options.Key or (typeof(options.Default) == "EnumItem" and options.Default) or nil,
         mode = options.mode or options.Mode or "Toggle",
-        active = options.default or options.Default == true or false,
+        active = options.active or false,
         open = false,
         binding = nil,
         items = {},
@@ -7642,27 +7624,26 @@ function library:Login(options)
 end
 
 
--- Destruction / Evenesce style aliases (same face, familiar API)
-function library:Dropdown(options) return self:dropdown(options) end
-function library:Toggle(options) return self:toggle(options) end
-function library:Slider(options) return self:slider(options) end
-function library:RangeSlider(options) return self:rangeslider(options) end
-function library:Button(options) return self:button(options) end
-function library:Textbox(options) return self:textbox(options) end
-function library:Keybind(options) return self:keybind(options) end
-function library:Colorpicker(options) return self:colorpicker(options) end
-function library:Label(options) return self:label(options) end
-function library:Section(options) return self:section(options) end
-function library:Tab(options) return self:tab(options) end
-function library:Window(options) return self:window(options) end
-function library:SubTab(options) return self:sub_tab(options) end
-function library:Notify(options)
-    if self.notification then
-        return self:notification(options)
+-- PascalCase aliases (Destruction-style API, same Glacier face)
+function library:Dropdown(o) return self:dropdown(o) end
+function library:Toggle(o) return self:toggle(o) end
+function library:Slider(o) return self:slider(o) end
+function library:RangeSlider(o) return self:rangeslider(o) end
+function library:Button(o) return self:button(o) end
+function library:Textbox(o) return self:textbox(o) end
+function library:Keybind(o) return self:keybind(o) end
+function library:Colorpicker(o) return self:colorpicker(o) end
+function library:Label(o) return self:label(o) end
+function library:Section(o) return self:section(o) end
+function library:Tab(o) return self:tab(o) end
+function library:Window(o) return self:window(o) end
+function library:SubTab(o) return self:sub_tab(o) end
+function library:Notify(o)
+    o = o or {}
+    if type(self.notification) == "function" then
+        return self:notification(o)
     end
-    if self.Notify then
-        -- avoid recursion
-    end
+    return nil
 end
 
 getgenv().Chromatik = library
